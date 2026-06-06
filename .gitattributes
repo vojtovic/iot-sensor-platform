@@ -1,0 +1,17 @@
+# Normalizuj konce řádků: v repozitáři vždy LF, při checkoutu dle platformy.
+* text=auto eol=lf
+
+# Skripty závislé na platformě
+*.sh   text eol=lf
+*.bash text eol=lf
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# Binární soubory (Git je nemá normalizovat)
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary

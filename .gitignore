@@ -1,0 +1,95 @@
+# ──────────────────────────────────────────────────────────────
+#  Tajné / lokální konfigurace  (NIKDY necommitovat!)
+# ──────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.local
+secrets/
+*.pem
+*.key
+
+# ──────────────────────────────────────────────────────────────
+#  Logy, výstupy testů a benchmarků
+# ──────────────────────────────────────────────────────────────
+*.log
+logs/
+benchmarks/results/
+benchmarks/**/results/
+coverage/
+.coverage
+htmlcov/
+*.cover
+junit*.xml
+test-results/
+
+# ──────────────────────────────────────────────────────────────
+#  Operační systém
+# ──────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ──────────────────────────────────────────────────────────────
+#  IDE / editory
+# ──────────────────────────────────────────────────────────────
+.idea/
+.vs/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.shared.json
+*.suo
+*.user
+*.swp
+
+# Obsidian (osobní konfigurace poznámkového trezoru — nepatří do projektu)
+.obsidian/
+
+# ──────────────────────────────────────────────────────────────
+#  Python  (FastAPI kandidát / simulátor)
+# ──────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# ──────────────────────────────────────────────────────────────
+#  Node.js  (NestJS kandidát / dashboard)
+# ──────────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.next/
+out/
+
+# ──────────────────────────────────────────────────────────────
+#  .NET / C#  (kandidát)
+# ──────────────────────────────────────────────────────────────
+bin/
+obj/
+*.dll
+*.exe
+*.pdb
+
+# ──────────────────────────────────────────────────────────────
+#  Java  (Maven / Gradle kandidát)
+# ──────────────────────────────────────────────────────────────
+target/
+.gradle/
+build/
+*.class
+
+# ──────────────────────────────────────────────────────────────
+#  Docker / data volumes  (lokální data DB se necommitují)
+# ──────────────────────────────────────────────────────────────
+infra/data/
+**/pgdata/
+**/influxdata/

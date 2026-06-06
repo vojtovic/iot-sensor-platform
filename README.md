@@ -19,6 +19,15 @@ Cílem je obecná architektura, která umožní:
 - **interoperabilitu** — jednotný kanonický datový model napříč různými payloady,
 - **nasazení v různých budovách** — hierarchie tenant → budova → patro → místnost.
 
+**Vzdálené řízení a chytré ukládání (návrh):**
+
+- příkazy zařízení (start/stop měření, `measure_now`, restart, kalibrace, …),
+- vzdálená konfigurace (interval měření, kalibrace),
+- ukládací politika „report by exception" + heartbeat — ukládej při překročení
+  prahu (s hysterezí), jinak periodicky,
+- vynucení na zařízení (umí-li), jinak na backendu — viz
+  [docs/design/rizeni-a-ukladaci-politika.md](docs/design/rizeni-a-ukladaci-politika.md).
+
 ## Architektura (přehled)
 
 ```

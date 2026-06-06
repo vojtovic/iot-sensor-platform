@@ -208,7 +208,10 @@ tenant(id, name)
                             unit, min, max, calibration)         ← MODULARITA
 
 telemetry(time, device_id, channel_id, value, quality)           ← TIME-SERIES DB
-device_config(device_id, version, json_config, applied_at)
+device_config(device_id, version, json_config, applied_at)       ← vč. report_policy
+device_capabilities(device_id, json, updated_at)                 ← edge_policy, příkazy…
+measurement_policy(device_id|channel_id, json, version, enforced_at: edge|backend)
+command_log(cmd_id, device_id, cmd, args, issued_by, status, acked_at)
 credential/api_key(...)        event/audit(...)
 ```
 
@@ -286,6 +289,28 @@ sequenceDiagram
 - **Konfigurace:** doručena přes **retained** topic `config` (vzor device shadow/twin);
   zařízení potvrdí `config_version` v `status`/`ack` → server pozná, že config sedí.
 - **Bezpečnost:** per-device credentials + ACL na brokeru (zařízení smí jen své topiky).
+
+---
+
+## 7b. Řízení, příkazy a ukládací politika `(rozšíření bodů 4–7)`
+
+Doplněk nad rámec původního zadání — vzdálené řízení senzorů, rozšířená konfigurace
+a chytré ukládání. **Detailní specifikace:**
+[docs/design/rizeni-a-ukladaci-politika.md](docs/design/rizeni-a-ukladaci-politika.md).
+
+- **Příkazy (downlink):** `start`/`stop`, `measure_now`, `set_interval`, `set_policy`,
+  `reboot`, `calibrate`, `identify`. Vzor command/ack s `cmd_id`, QoS 1 a expirací.
+  **Příkaz = jednorázová akce (neretained)** vs. **konfigurace = žádaný stav (retained)**.
+- **Konfigurace:** rozšířena o `sample_interval_s`, `report_policy` a `calibration`;
+  zařízení potvrdí `config_version`.
+- **Ukládací politika („report by exception" + heartbeat):** ulož při překročení
+  prahu (s **hysterezí**) nebo změně o deadband, jinak aspoň 1× za heartbeat; nikdy
+  častěji než `min_interval`. Řeší „neukládat celý den stejnou teplotu".
+- **Kde se vynucuje:** definováno centrálně, **na zařízení pokud to umí**
+  (`edge_policy`), jinak na **backendu**; backend vždy pojistka. Viz
+  [ADR 0002](docs/adr/0002-vynuceni-ukladaci-politiky.md). Drží to modularitu a
+  umožňuje integraci cizích jednotek (bod 10) bez zásahu do jejich firmwaru.
+- **Mimo rozsah:** kamera / video stream (prozatím vynecháno).
 
 ---
 

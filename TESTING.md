@@ -80,6 +80,30 @@ compose:
 Jeden „happy path" přes celý systém: simulátor publikuje → data jsou v DB →
 viditelná přes API → zobrazí se na dashboardu. Plus jeden „smutný path" (výpadek).
 
+### 3.6 Příkazy, konfigurace a ukládací politika `(rozšíření)`
+
+Viz návrh [docs/design/rizeni-a-ukladaci-politika.md](docs/design/rizeni-a-ukladaci-politika.md).
+Klíčové: ověřit, že **edge i backend vynucení dají stejný výsledek**.
+
+- **Příkazy (command/ack):** vydej příkaz → `ack` se správným `cmd_id` do X s;
+  nepodporovaný příkaz → `status: unsupported`; **offline zařízení** → příkaz se
+  doručí po reconnectu, nebo po `expiry_s` skončí jako `expired` (a nikdy se
+  nepřehraje starý příkaz — není retained).
+- **Konfigurace:** změň `sample_interval`/politiku → zařízení potvrdí nový
+  `config_version`; opakované doručení je idempotentní.
+- **Ukládací politika — tabulka případů (deterministický vstup ze simulátoru):**
+
+| Vstup | `report_policy` | Očekávané uložení |
+|---|---|---|
+| konstantní hodnota | heartbeat 300 s | přesně 1× za 300 s |
+| oscilace kolem 23,0 | práh > 23, hyst. 0,5 | jen přechody, ne každý vzorek („žádné blikání") |
+| pomalý drift po malých krocích | deadband 0,3 | uloží se až při kumulativní změně ≥ 0,3 |
+| rychlé velké změny | min_interval 30 s | ne častěji než 1× za 30 s |
+| **edge vs. backend** | stejná politika | **identický počet i hodnoty** uložených bodů |
+
+- **Capability fallback:** zařízení s `edge_policy:false` (simuluj „cizí" senzor
+  posílající vše) → politiku aplikuje backend; výsledek musí odpovídat edge variantě.
+
 ---
 
 ## 4. Sensor simulator / generátor zátěže

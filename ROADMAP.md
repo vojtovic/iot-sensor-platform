@@ -180,6 +180,10 @@ Odhady jsou v „person-týdnech" pro jednoho člověka. Namapuj si je na svůj 
 - Monitoring systému: metriky brokeru, zpoždění ingestionu, velikost DB
   (Prometheus + Grafana).
 - Alerty: práh CO₂, zařízení offline, zaostávající ingestion.
+- **Digital twin (showcase):** vlastní React frontend — 2,5D přehled pater, po
+  rozkliknutí 3D detail patra se senzory v reálných pozicích. Pozn.: 3D Grafana
+  neumí → vlastní frontend; implementace je navazující. Viz
+  [docs/design/3d-vizualizace-budovy.md](docs/design/3d-vizualizace-budovy.md).
 - **Definition of done:** na dashboardu vidíš živá data i kdo je offline; přijde alert.
 
 ### Fáze 6 — Integrace, ověření, dokumentace `(přechod k bodům 8–12)` · průběžně + ~1–2 týdny
@@ -212,6 +216,8 @@ device_config(device_id, version, json_config, applied_at)       ← vč. report
 device_capabilities(device_id, json, updated_at)                 ← edge_policy, příkazy…
 measurement_policy(device_id|channel_id, json, version, enforced_at: edge|backend)
 command_log(cmd_id, device_id, cmd, args, issued_by, status, acked_at)
+floor(id, site_id, level_index, elevation_m, floorplan_asset, model3d_asset?)  ← vizualizace
+device_position(device_id, floor_id, x, y, z?)                   ← poloha senzoru (digital twin)
 credential/api_key(...)        event/audit(...)
 ```
 

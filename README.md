@@ -28,6 +28,12 @@ Cílem je obecná architektura, která umožní:
 - vynucení na zařízení (umí-li), jinak na backendu — viz
   [docs/design/rizeni-a-ukladaci-politika.md](docs/design/rizeni-a-ukladaci-politika.md).
 
+**Vizualizace „digital twin" (návrh):**
+
+- 2,5D přehled pater na sobě; po rozkliknutí patra 3D scéna se senzory v reálných pozicích,
+- živé hodnoty barevně + klik na senzor → graf historie — viz
+  [docs/design/3d-vizualizace-budovy.md](docs/design/3d-vizualizace-budovy.md).
+
 ## Architektura (přehled)
 
 ```

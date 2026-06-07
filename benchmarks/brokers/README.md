@@ -4,6 +4,29 @@ Rampový benchmark 7 MQTT brokerů (viz [../../infra/](../../infra/#porovnání-
 **Samostatný experiment** oddělený od benchmarku backendových stacků (Fáze 3) —
 mění se jen broker, vše ostatní je stejné (bod 2 zadání).
 
+## Co je QoS (úroveň doručení MQTT)
+
+MQTT definuje tři úrovně kvality doručení zprávy (Quality of Service). Měříme
+hlavně QoS 0 a QoS 1, protože ty se v IoT reálně používají:
+
+- **QoS 0 — „at most once" (nejvýše jednou):** odesílatel pošle zprávu a dál se
+  o ni nestará. Žádné potvrzení, žádné opakování — když se zpráva po cestě
+  ztratí (výpadek, přetížení), je pryč. **Nejrychlejší a nejlevnější**, ale bez
+  záruky doručení. Hodí se pro častá, „jednorázová" měření, kde občasná ztráta
+  nevadí.
+- **QoS 1 — „at least once" (alespoň jednou):** příjemce každou zprávu potvrdí
+  (PUBACK). Když potvrzení nepřijde, odesílatel zprávu **pošle znovu** → zpráva
+  dorazí zaručeně, ale může i víckrát (proto má telemetrie `seq` na deduplikaci).
+  Dražší (ack + případná persistence na straně brokeru), ale spolehlivá.
+  **Výchozí volba pro telemetrii v tomto projektu** (ROADMAP §6).
+- **QoS 2 — „exactly once" (právě jednou):** čtyřfázový handshake, zaručeně bez
+  duplikátů. Nejdražší; pro telemetrii senzorů se prakticky nepoužívá, proto ho
+  neměříme.
+
+**Proč měříme obojí:** rozdíl QoS 0 vs QoS 1 je přímo ten **kompromis rychlost
+vs. spolehlivost**. U QoS 0 jsou si brokery blízko; u QoS 1 se ukáže, jak dobře
+zvládají potvrzování a (ne)persistenci — tam se nejvíc liší (viz Výsledky).
+
 ## Co se měří
 
 Pro každý broker se projede **rampa** rostoucích cílových rychlostí. V každém
@@ -12,7 +35,7 @@ kroku se měří:
 - **propustnost** — kolik zpráv/s reálně dorazí end-to-end,
 - **latence** — p50 / p95 / p99 / max (publish → receive),
 - **ztrátovost** — kolik z odeslaných nedorazilo v okně (indikátor saturace),
-- **zdroje brokeru** — CPU % a RAM kontejneru (`docker stats`).
+- **zdroje brokeru** — CPU a RAM kontejneru (čteno z cgroup v2 — viz výhrady).
 
 „Koleno" rampy = krok, kde propustnost přestane stíhat cíl a latence vyskočí.
 
@@ -170,6 +193,13 @@ RAM = working set kontejneru (memory.current − cache).
 V `results/export/` (po `python -m brokerbench.export`):
 `throughput-qos{0,1}.png`, `latency-p99-qos{0,1}.png`, `ram-qos{0,1}-5000.png`,
 `cpu-qos{0,1}-5000.png`.
+
+> **Pozn. k `throughput-qos0.png`:** je to jen jedna čára na diagonále, protože
+> při QoS 0 **každý broker trefil každou cílovou rychlost** až do 10 000/s (0 ztrát)
+> — žádný nebyl úzké hrdlo, všechny křivky splynou s ideálem (cíl = dosaženo).
+> To je samo o sobě výsledek: při QoS 0 limituje až klient, ne broker. Rozdíly
+> mezi brokery jsou u QoS 0 vidět v latenci/CPU/RAM, ne v propustnosti.
+> (U QoS 1 je throughput graf naopak zajímavý — HiveMQ a RabbitMQ tam lámou.)
 
 ### Výhrady ke konkrétním číslům
 

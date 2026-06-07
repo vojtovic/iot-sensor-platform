@@ -41,13 +41,25 @@ async def _cpu_usage_usec(container: str) -> int | None:
 
 
 async def _mem_bytes(container: str) -> int | None:
-    txt = await _docker_read(container, "/sys/fs/cgroup/memory.current")
-    if not txt:
+    """Working set = memory.current − inactive_file (reclaimovatelná cache pryč).
+
+    Odpovídá tomu, co počítá `docker stats`; zahrnuje proces (anon) i kernel slab.
+    """
+    cur_txt = await _docker_read(container, "/sys/fs/cgroup/memory.current")
+    if not cur_txt:
         return None
     try:
-        return int(txt.strip())
+        current = int(cur_txt.strip())
     except ValueError:
         return None
+    inactive_file = 0
+    stat_txt = await _docker_read(container, "/sys/fs/cgroup/memory.stat")
+    if stat_txt:
+        for line in stat_txt.splitlines():
+            if line.startswith("inactive_file "):
+                inactive_file = int(line.split()[1])
+                break
+    return max(0, current - inactive_file)
 
 
 async def sample_during(container: str, coro: Coroutine[Any, Any, Any]):

@@ -14,6 +14,7 @@ import asyncio
 import multiprocessing as mp
 import time
 from dataclasses import dataclass, field
+from statistics import median
 
 import aiomqtt
 
@@ -36,13 +37,41 @@ class StepResult:
     mem_mb_max: float = 0.0
 
 
+def median_step(results: list[StepResult]) -> StepResult:
+    """Sloučí výsledky N opakování jednoho kroku do mediánu (robustní vůči šumu)."""
+    if len(results) == 1:
+        return results[0]
+    r0 = results[0]
+    lat_keys = r0.lat.keys()
+    return StepResult(
+        target_rate=r0.target_rate,
+        duration_s=r0.duration_s,
+        sent=int(median(r.sent for r in results)),
+        received=int(median(r.received for r in results)),
+        throughput=median(r.throughput for r in results),
+        loss_pct=median(r.loss_pct for r in results),
+        lat={k: median(r.lat[k] for r in results) for k in lat_keys},
+        cpu_pct_avg=median(r.cpu_pct_avg for r in results),
+        cpu_pct_max=median(r.cpu_pct_max for r in results),
+        mem_mb_avg=median(r.mem_mb_avg for r in results),
+        mem_mb_max=median(r.mem_mb_max for r in results),
+    )
+
+
 # ── Subscriber proces ────────────────────────────────────────────────────
 
-def _subscriber_proc(host: str, port: int, ready, stop, result_q, sample_every: int) -> None:
+def _subscriber_proc(host: str, port: int, ready, stop, result_q, sample_every: int,
+                     inflight: int) -> None:
     async def run() -> None:
         received = 0
         lat: list[float] = []
-        async with aiomqtt.Client(host, port=port, identifier="bench-sub") as client:
+        # Větší in-flight okno → QoS1 propustnost není uměle stropována na
+        # ~20/ack-RTT (paho default). max_queued_incoming=0 = bez klientské fronty.
+        async with aiomqtt.Client(
+            host, port=port, identifier="bench-sub",
+            max_inflight_messages=inflight,
+            max_queued_incoming_messages=0,
+        ) as client:
             await client.subscribe("bench/#", qos=1)
             ready.set()
             it = client.messages.__aiter__()
@@ -98,7 +127,8 @@ def _publisher_proc(host: str, port: int, client_ids: list[int],
 
 async def run_step(host: str, port: int, target_rate: int, duration_s: float,
                    clients: int, qos: int, drain_s: float = 3.0,
-                   sample_every: int = 1, pub_procs: int = 4) -> StepResult:
+                   sample_every: int = 1, pub_procs: int = 4,
+                   inflight: int = 1000) -> StepResult:
     """Spustí jeden krok rampy v oddělených procesech a vrátí naměřené hodnoty."""
     ctx = mp.get_context("spawn")
     ready = ctx.Event()
@@ -107,7 +137,7 @@ async def run_step(host: str, port: int, target_rate: int, duration_s: float,
     sent_q = ctx.Queue()
 
     sub = ctx.Process(target=_subscriber_proc,
-                      args=(host, port, ready, stop, result_q, sample_every))
+                      args=(host, port, ready, stop, result_q, sample_every, inflight))
     sub.start()
     if not ready.wait(timeout=15):
         sub.terminate()

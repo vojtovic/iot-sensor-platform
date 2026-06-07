@@ -19,6 +19,9 @@ RATES="${RATES:-1000,2500,5000,7500,10000}"
 DURATION="${DURATION:-6}"
 CLIENTS="${CLIENTS:-20}"
 SAMPLE_EVERY="${SAMPLE_EVERY:-50}"
+REPEAT="${REPEAT:-1}"
+QOS="${QOS:-1}"
+INFLIGHT="${INFLIGHT:-1000}"
 
 mkdir -p results
 STAMP="$(date +%Y%m%d-%H%M%S)"
@@ -27,7 +30,7 @@ SUMMARY="results/summary-$STAMP.md"
 {
   echo "# Broker benchmark — $STAMP"
   echo
-  echo "Parametry: rates=$RATES · duration=${DURATION}s · clients=$CLIENTS · qos=1 · sample_every=$SAMPLE_EVERY"
+  echo "Parametry: rates=$RATES · duration=${DURATION}s · clients=$CLIENTS · qos=$QOS · repeat=$REPEAT · inflight=$INFLIGHT · sample_every=$SAMPLE_EVERY"
   echo
 } > "$SUMMARY"
 
@@ -52,7 +55,8 @@ for b in $BROKERS; do
   fi
   "$PY" -m brokerbench --broker "$b" --container "iot-$b" \
     --rates "$RATES" --duration "$DURATION" --clients "$CLIENTS" \
-    --sample-every "$SAMPLE_EVERY" --json "results/$b-$STAMP.json" \
+    --qos "$QOS" --repeat "$REPEAT" --inflight "$INFLIGHT" \
+    --sample-every "$SAMPLE_EVERY" --json "results/$b-qos$QOS-$STAMP.json" \
     | tee -a "$SUMMARY"
 done
 

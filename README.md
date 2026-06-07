@@ -96,13 +96,15 @@ Srovnání při **5 000 zpráv/s, QoS 1** (medián ze 3 běhů):
 |---|---:|---:|---:|---:|
 | Mosquitto | **12 ms** | 5 000/s | **16 %** | 11 MB |
 | NanoMQ | 15 ms | 5 000/s | 66 % | **8 MB** |
+| Artemis | 18 ms | 5 000/s | 61 % | 674 MB |
+| VerneMQ | 32 ms | 5 000/s | 122 % | 376 MB |
 | EMQX | 57 ms | 5 000/s | 200 % | 249 MB |
 | RabbitMQ | 488 ms | 5 000/s | 132 % | 268 MB |
 | HiveMQ CE | 865 ms | **1 244/s** | 88 % | 603 MB |
 
-(VerneMQ a Artemis mezi výše uvedenými.) **Závěr:** při QoS 0 zvládnou 5 000/s
-všichni; při QoS 1 se rozevřou nůžky (durabilita vs. propustnost). **Mosquitto**
-je nejvyrovnanější (nejnižší CPU i latence), **NanoMQ** nejmenší RAM.
+**Závěr:** při QoS 0 zvládnou 5 000/s všichni; při QoS 1 se rozevřou nůžky
+(durabilita vs. propustnost). **Mosquitto** je nejvyrovnanější (nejnižší CPU i
+latence), **NanoMQ** nejmenší RAM.
 
 **Testováno na:** Intel Core i5-12450HX (8 j / 12 vl), 23 GiB RAM, NVMe SSD,
 Arch Linux (kernel 6.19), Docker 29.4 — vše na jednom hostu (čísla relativní,

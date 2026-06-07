@@ -24,19 +24,17 @@ def parse_rates(s: str) -> list[int]:
 async def _one_step(args: argparse.Namespace, rate: int) -> StepResult:
     """Jeden běh kroku (volitelně se vzorkováním CPU/RAM)."""
     if args.container:
-        step, samples = await sample_during(
+        step, metrics = await sample_during(
             args.container,
             run_step(args.host, args.port, rate, args.duration,
                      args.clients, args.qos, sample_every=args.sample_every,
                      inflight=args.inflight),
         )
-        if samples:
-            cpus = [s["cpu_pct"] for s in samples]
-            mems = [s["mem_mb"] for s in samples]
-            step.cpu_pct_avg = sum(cpus) / len(cpus)
-            step.cpu_pct_max = max(cpus)
-            step.mem_mb_avg = sum(mems) / len(mems)
-            step.mem_mb_max = max(mems)
+        # CPU je průměr přes celý krok (cgroup delta) — robustní jediná hodnota.
+        step.cpu_pct_avg = metrics["cpu_pct"]
+        step.cpu_pct_max = metrics["cpu_pct"]
+        step.mem_mb_avg = metrics["mem_mb_avg"]
+        step.mem_mb_max = metrics["mem_mb_max"]
         return step
     return await run_step(args.host, args.port, rate, args.duration,
                           args.clients, args.qos, sample_every=args.sample_every,

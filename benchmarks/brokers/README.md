@@ -190,16 +190,34 @@ RAM = working set kontejneru (memory.current − cache).
 
 ### Grafy
 
-V `results/export/` (po `python -m brokerbench.export`):
-`throughput-qos{0,1}.png`, `latency-p99-qos{0,1}.png`, `ram-qos{0,1}-5000.png`,
-`cpu-qos{0,1}-5000.png`.
+Klíčové grafy pro QoS 1 (kompletní sada vč. QoS 0 je ve `charts/`; generuje
+`python -m brokerbench.export`):
+
+**Latence p99 vs zatížení** — kde který broker „láme" (log škála):
+
+![Latence p99, QoS 1](charts/latency-p99-qos1.png)
+
+HiveMQ narazí na zeď hned u 2 500/s, RabbitMQ u 5 000/s; lehké brokery drží nízko nejdéle.
+
+**Propustnost vs cíl** — sledování ideální linie:
+
+![Propustnost, QoS 1](charts/throughput-qos1.png)
+
+NanoMQ/Mosquitto/Artemis sledují ideál až do 10 000/s; HiveMQ je placatý na ~1 250/s.
+
+**CPU a RAM při 5 000/s:**
+
+![CPU, QoS 1](charts/cpu-qos1-5000.png)
+![RAM, QoS 1](charts/ram-qos1-5000.png)
+
+Mosquitto má zdaleka nejnižší CPU; EMQX nejvyšší (Erlang VM). RAM: lehké brokery
+jednotky MB vs. JVM/Erlang stovky MB.
 
 > **Pozn. k `throughput-qos0.png`:** je to jen jedna čára na diagonále, protože
 > při QoS 0 **každý broker trefil každou cílovou rychlost** až do 10 000/s (0 ztrát)
 > — žádný nebyl úzké hrdlo, všechny křivky splynou s ideálem (cíl = dosaženo).
 > To je samo o sobě výsledek: při QoS 0 limituje až klient, ne broker. Rozdíly
 > mezi brokery jsou u QoS 0 vidět v latenci/CPU/RAM, ne v propustnosti.
-> (U QoS 1 je throughput graf naopak zajímavý — HiveMQ a RabbitMQ tam lámou.)
 
 ### Výhrady ke konkrétním číslům
 

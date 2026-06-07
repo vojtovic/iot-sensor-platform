@@ -106,6 +106,11 @@ Srovnání při **5 000 zpráv/s, QoS 1** (medián ze 3 běhů):
 (durabilita vs. propustnost). **Mosquitto** je nejvyrovnanější (nejnižší CPU i
 latence), **NanoMQ** nejmenší RAM.
 
+![Latence p99 vs zatížení, QoS 1](benchmarks/brokers/charts/latency-p99-qos1.png)
+![CPU při 5000/s, QoS 1](benchmarks/brokers/charts/cpu-qos1-5000.png)
+
+Více grafů a metodika v [benchmarks/brokers/](benchmarks/brokers/).
+
 **Testováno na:** Intel Core i5-12450HX (8 j / 12 vl), 23 GiB RAM, NVMe SSD,
 Arch Linux (kernel 6.19), Docker 29.4 — vše na jednom hostu (čísla relativní,
 viz výhrady v [benchmarks/brokers/README.md](benchmarks/brokers/README.md)).

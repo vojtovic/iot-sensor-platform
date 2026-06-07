@@ -7,16 +7,16 @@ Lokální vývojové a testovací prostředí (Docker).
 Postupuje se po krocích Fáze 2 (viz [ROADMAP](../ROADMAP.md#fáze-2--sdílená-infrastruktura-základ-pro-bod-4--1-týden)):
 
 - [x] **MQTT broker (EMQX)** — dashboard, listenery 1883 / 8083 / 18083
-- [ ] TimescaleDB (telemetrie + metadata, jeden Postgres engine)
+- [x] **TimescaleDB** — telemetrie (hypertable) + metadata v jednom Postgresu
+- [x] **Init skripty schématu** (`§5` model + seed data)
 - [ ] Grafana (provisioned datasource → Timescale)
-- [ ] Init skripty schématu (`§5` modelu)
 
 ## Rychlý start
 
 ```bash
 cd infra/
 cp .env.example .env             # případně uprav hesla
-docker compose up -d emqx
+docker compose up -d             # nastartuje EMQX i TimescaleDB
 ```
 
 Ověření:
@@ -26,7 +26,16 @@ Ověření:
 | EMQX dashboard | http://localhost:18083 | `admin` / `iot-dev` (z `.env`) |
 | MQTT TCP | `tcp://localhost:1883` | bez autentizace (Fáze 2) |
 | MQTT WebSocket | `ws://localhost:8083/mqtt` | bez autentizace (Fáze 2) |
+| TimescaleDB | `postgres://iot:iot-dev@localhost:5432/iot` | z `.env` |
 | Health check | `docker compose ps` | sloupec `STATUS` ukáže `healthy` |
+
+Kontrola schématu DB:
+
+```bash
+docker exec iot-timescaledb psql -U iot -d iot -c '\dt'
+docker exec iot-timescaledb psql -U iot -d iot \
+  -c "SELECT hypertable_name FROM timescaledb_information.hypertables;"
+```
 
 Smoke test publish/subscribe — pokud máš lokálně `mosquitto-clients`:
 
@@ -50,7 +59,8 @@ V EMQX dashboardu **Monitoring → Topics** se objeví `v1/dev/test/telemetry`.
 | Soubor | Co řeší |
 |---|---|
 | `docker-compose.yml` | služby, porty, volumy, healthcheck |
-| `.env` (lokální) | dashboard heslo apod. (necommitované) |
+| `timescale/init/*.sql` | schéma (§5), telemetrie hypertable, seed (běží při 1. startu) |
+| `.env` (lokální) | dashboard/DB hesla apod. (necommitované) |
 | `.env.example` | šablona pro `.env` (commitovaná) |
 
 EMQX se konfiguruje **přes proměnné prostředí** v `docker-compose.yml` (doporučený

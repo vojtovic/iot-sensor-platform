@@ -41,6 +41,32 @@ services:
       retries: 6
       start_period: 30s
 
+  # ───────────────────────────────────────────────────────────────
+  # TimescaleDB  (telemetrie hypertable + relační metadata v jednom Postgresu)
+  # Connection:  postgres://iot:iot-dev@localhost:5432/iot
+  # ───────────────────────────────────────────────────────────────
+  timescaledb:
+    image: timescale/timescaledb:2.17.2-pg16
+    container_name: iot-timescaledb
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-iot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-iot-dev}
+      POSTGRES_DB: ${POSTGRES_DB:-iot}
+    volumes:
+      - ts-data:/var/lib/postgresql/data
+      # Init skripty (schéma + seed) běží jen při PRVNÍM startu (prázdný volume).
+      - ./timescale/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-iot} -d ${POSTGRES_DB:-iot}"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
 volumes:
   emqx-data:
   emqx-log:
+  ts-data:

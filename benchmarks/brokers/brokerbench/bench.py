@@ -89,9 +89,10 @@ def _subscriber_proc(host: str, port: int, ready, stop, result_q, sample_every: 
                     t_ns = read_t_ns(msg.payload)
                     if t_ns is not None:
                         lat.append((time.time_ns() - t_ns) / 1e6)
+                # Kontrola stop i během proudu zpráv — jinak by se při zahlcení
+                # (velký backlog) subscriber nikdy nezastavil a result_q vypršel.
                 if stop.is_set():
-                    # doodbavej co je hned k dispozici, pak konec
-                    pass
+                    break
         result_q.put((received, lat))
 
     asyncio.run(run())
@@ -162,7 +163,11 @@ async def run_step(host: str, port: int, target_rate: int, duration_s: float,
 
     await asyncio.sleep(drain_s)   # nech doputovat zprávy ve frontě
     stop.set()
-    received, lat = result_q.get(timeout=10)
+    try:
+        received, lat = result_q.get(timeout=30)
+    except Exception:
+        # subscriber se nestihl ohlásit (extrémní zahlcení) — neshazuj celý běh
+        received, lat = 0, []
     sub.join(timeout=5)
     if sub.is_alive():
         sub.terminate()

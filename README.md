@@ -90,19 +90,19 @@ Jako součást analýzy řešení (bod 2) bylo změřeno **7 MQTT brokerů** ram
 benchmarkem (vlastní nástroj, generátor zátěže = simulátor). Detaily, grafy a
 metodika v [benchmarks/brokers/](benchmarks/brokers/).
 
-Srovnání při **5 000 zpráv/s** (medián ze 3 běhů):
+Srovnání při **5 000 zpráv/s, QoS 1** (medián ze 3 běhů):
 
-| Broker | QoS 1 — p99 | QoS 1 — propust. | RAM |
-|---|---:|---:|---:|
-| NanoMQ | **14 ms** | 5 000/s | **3 MB** |
-| Mosquitto | 29 ms | 5 000/s | **4 MB** |
-| EMQX | 53 ms | 5 000/s | 248 MB |
-| RabbitMQ | 708 ms | 5 000/s | 267 MB |
-| HiveMQ CE | 868 ms | **1 250/s** | 657 MB |
+| Broker | p99 | propust. | CPU | RAM |
+|---|---:|---:|---:|---:|
+| Mosquitto | **12 ms** | 5 000/s | **16 %** | 11 MB |
+| NanoMQ | 15 ms | 5 000/s | 66 % | **8 MB** |
+| EMQX | 57 ms | 5 000/s | 200 % | 249 MB |
+| RabbitMQ | 488 ms | 5 000/s | 132 % | 268 MB |
+| HiveMQ CE | 865 ms | **1 244/s** | 88 % | 603 MB |
 
 (VerneMQ a Artemis mezi výše uvedenými.) **Závěr:** při QoS 0 zvládnou 5 000/s
-všichni; při QoS 1 se rozevřou nůžky (durabilita vs. propustnost). **NanoMQ** a
-**Mosquitto** jsou nejúspornější (~3–4 MB RAM).
+všichni; při QoS 1 se rozevřou nůžky (durabilita vs. propustnost). **Mosquitto**
+je nejvyrovnanější (nejnižší CPU i latence), **NanoMQ** nejmenší RAM.
 
 **Testováno na:** Intel Core i5-12450HX (8 j / 12 vl), 23 GiB RAM, NVMe SSD,
 Arch Linux (kernel 6.19), Docker 29.4 — vše na jednom hostu (čísla relativní,

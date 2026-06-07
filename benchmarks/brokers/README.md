@@ -121,46 +121,49 @@ jeden host — viz výše). Grafy a CSV: `results/export/` (vygeneruj `python -m
 
 ### Srovnání při 5 000 zpráv/s
 
-Seřazeno podle latence (p99). RAM/CPU = max kontejneru během kroku.
+Seřazeno podle latence (p99). CPU = průměr přes krok (% jednoho jádra, cgroup),
+RAM = working set kontejneru (memory.current − cache).
 
 **QoS 1** (telemetrie — doručení potvrzené ackem):
 
 | Broker | propust./s | ztráta % | p99 ms | CPU % | RAM MB |
 |---|---:|---:|---:|---:|---:|
-| **NanoMQ** | 5 000 | 0 | **14.2** | 0 | **3** |
-| **Artemis** | 5 000 | 0 | 25.8 | 0 | 639 |
-| **Mosquitto** | 5 000 | 0 | 28.6 | 0 | **4** |
-| **VerneMQ** | 5 000 | 0 | 32.7 | 0 | 360 |
-| **EMQX** | 5 000 | 0 | 52.7 | 10 | 248 |
-| **RabbitMQ** | 4 996 | 0 | 707.8 | 19 | 267 |
-| **HiveMQ CE** | 1 246 | 75.1 | 867.7 | 11 | 657 |
+| **Mosquitto** | 5 000 | 0 | **11.8** | **16** | 11 |
+| **NanoMQ** | 5 000 | 0 | 14.8 | 66 | **8** |
+| **Artemis** | 5 000 | 0 | 18.4 | 61 | 674 |
+| **VerneMQ** | 5 000 | 0 | 32.1 | 122 | 376 |
+| **EMQX** | 5 000 | 0 | 56.8 | 200 | 249 |
+| **RabbitMQ** | 5 000 | 0 | 487.7 | 132 | 268 |
+| **HiveMQ CE** | 1 244 | 75.1 | 865.4 | 88 | 603 |
 
 **QoS 0** (bez potvrzování — maximální propustnost):
 
 | Broker | propust./s | ztráta % | p99 ms | CPU % | RAM MB |
 |---|---:|---:|---:|---:|---:|
-| **Artemis** | 5 000 | 0 | 5.5 | 0 | 676 |
-| **Mosquitto** | 5 000 | 0 | 6.2 | 0 | **4** |
-| **NanoMQ** | 5 000 | 0 | 8.9 | 0 | **3** |
-| **VerneMQ** | 5 000 | 0 | 10.1 | 0 | 108 |
-| **EMQX** | 5 000 | 0 | 15.3 | 9 | 251 |
-| **RabbitMQ** | 5 000 | 0 | 15.8 | 1 | 147 |
-| **HiveMQ CE** | 5 000 | 0 | 21.6 | 3 | 520 |
+| **NanoMQ** | 5 000 | 0 | **5.6** | 38 | 11 |
+| **Mosquitto** | 5 000 | 0 | 6.5 | **13** | **7** |
+| **VerneMQ** | 5 000 | 0 | 8.7 | 56 | 111 |
+| **HiveMQ CE** | 5 000 | 0 | 11.0 | 83 | 524 |
+| **Artemis** | 5 000 | 0 | 11.1 | 44 | 687 |
+| **RabbitMQ** | 5 000 | 0 | 11.6 | 84 | 148 |
+| **EMQX** | 5 000 | 0 | 16.9 | 132 | 254 |
 
 ### Co z toho plyne
 
-- **NanoMQ a Mosquitto = šampioni efektivity:** ~3–4 MB RAM (!), nízká latence
-  v obou QoS, drží i 10 000/s. Pro edge / malé nasazení ideální.
+- **Mosquitto = nejvyrovnanější:** nejnižší CPU (13–16 %) i RAM (~7–11 MB) a
+  nejnižší latence při QoS 1. Pro malé/edge nasazení ideální.
+- **NanoMQ:** stejně malá RAM, ale vyšší CPU (chytřejší busy-polling NNG).
+  Skvělá latence při QoS 0.
 - **QoS 1 vs QoS 0 = kompromis durabilita vs. propustnost.** Při QoS 0 zvládnou
   5 000/s úplně všichni (i HiveMQ). Při QoS 1 se rozevřou nůžky:
-  - **RabbitMQ** udrží 5 000/s, ale p99 vyletí na ~700 ms (MQTT přes AMQP plugin).
+  - **RabbitMQ** udrží 5 000/s, ale p99 vyletí na ~490 ms (MQTT přes AMQP plugin).
   - **HiveMQ CE** spadne na ~1 250/s se ztrátami — jeho QoS 1 cesta je
     disk-bound (persistuje zprávy), což je **vlastnost, ne vada**: vyměňuje
     propustnost za odolnost. Strop ~1 250/s je nezávislý na počtu klientů i
     velikosti in-flight okna → limit je server-side, ne klientský.
-- **Artemis a VerneMQ:** zvládnou obojí, ale těžší na RAM (JVM / Erlang).
-- **EMQX:** stabilní střed; jeho síla jsou featury (dashboard, shared subs,
-  MQTT 5), ne minimální stopa.
+- **EMQX:** nejvyšší CPU (132–200 %, Erlang VM), ale stabilní; síla jsou featury
+  (dashboard, shared subs, MQTT 5), ne minimální stopa.
+- **Artemis / VerneMQ:** zvládnou obojí, ale těžší na RAM (JVM ~680 MB / Erlang).
 
 ### Grafy
 
@@ -172,5 +175,7 @@ V `results/export/` (po `python -m brokerbench.export`):
 
 - **Jeden host** (Python klient i brokery sdílí CPU) → strop ~10 000/s je
   **klientský**, ne brokeru. Čísla jsou relativní (stejný klient pro všechny).
-- **CPU z `docker stats`** je vzorkované a šumí.
+- **CPU/RAM** se čte z cgroup v2 (`cpu.stat` usage_usec, `memory.current`);
+  CPU je průměr přes celý krok (dřívější `docker stats` vzorkování dávalo u
+  lehkých brokerů chybně 0 %).
 - Pro publikovatelná čísla: víc klientských strojů / `emqtt_bench` (TESTING.md §5).

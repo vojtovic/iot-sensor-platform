@@ -1,0 +1,20 @@
+# Grafana provisioning — datasource pro TimescaleDB.
+# Načte se automaticky při startu Grafany (Fáze 2).
+# Hodnoty ${...} se berou z env proměnných předaných do kontejneru (viz compose).
+
+apiVersion: 1
+
+datasources:
+  - name: TimescaleDB
+    type: postgres
+    access: proxy
+    url: timescaledb:5432              # název služby v docker síti
+    user: ${POSTGRES_USER}
+    isDefault: true
+    secureJsonData:
+      password: ${POSTGRES_PASSWORD}
+    jsonData:
+      database: ${POSTGRES_DB}
+      sslmode: disable
+      postgresVersion: 1600            # pg16
+      timescaledb: true                # zapne TimescaleDB-specifické funkce v editoru

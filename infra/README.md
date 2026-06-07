@@ -9,7 +9,10 @@ Postupuje se po krocích Fáze 2 (viz [ROADMAP](../ROADMAP.md#fáze-2--sdílená
 - [x] **MQTT broker (EMQX)** — dashboard, listenery 1883 / 8083 / 18083
 - [x] **TimescaleDB** — telemetrie (hypertable) + metadata v jednom Postgresu
 - [x] **Init skripty schématu** (`§5` model + seed data)
-- [ ] Grafana (provisioned datasource → Timescale)
+- [x] **Grafana** — provisioned datasource → TimescaleDB
+
+> Tím je infrastruktura Fáze 2 hotová. Zbývá **sensor simulator**
+> (samostatná komponenta, viz [../simulator/](../simulator/)).
 
 ## Rychlý start
 
@@ -27,7 +30,18 @@ Ověření:
 | MQTT TCP | `tcp://localhost:1883` | bez autentizace (Fáze 2) |
 | MQTT WebSocket | `ws://localhost:8083/mqtt` | bez autentizace (Fáze 2) |
 | TimescaleDB | `postgres://iot:iot-dev@localhost:5432/iot` | z `.env` |
+| Grafana | http://localhost:3000 | `admin` / `iot-dev` (z `.env`) |
 | Health check | `docker compose ps` | sloupec `STATUS` ukáže `healthy` |
+
+Datasource TimescaleDB je v Grafaně **provisioned** automaticky (žádné klikání).
+Ověření připojení:
+
+```bash
+curl -s -u admin:iot-dev \
+  "http://localhost:3000/api/datasources/uid/$(curl -s -u admin:iot-dev \
+   http://localhost:3000/api/datasources | python3 -c 'import sys,json;print(json.load(sys.stdin)[0]["uid"])')/health"
+# → {"message":"Database Connection OK","status":"OK"}
+```
 
 Kontrola schématu DB:
 
@@ -73,5 +87,8 @@ Data brokeru/DB se ukládají do pojmenovaných Docker volumů (`emqx-data`,
 ## Co tady (ještě) **není**
 
 - Per-device autentizace + ACL → Fáze 4 (TESTING.md bezpečnostní testy).
-- Prometheus exporter + Grafana dashboardy → Fáze 5.
+- Prometheus exporter + Grafana **dashboardy** → Fáze 5 (teď jen prázdná Grafana + datasource).
 - Retention / downsampling v Timescale → Fáze 4.
+
+> Init skripty (`timescale/init/*.sql`) běží **jen při prvním startu** (prázdný
+> volume). Po změně schématu je nutný reset: `docker compose down -v`.

@@ -66,7 +66,39 @@ services:
       retries: 6
       start_period: 20s
 
+  # ───────────────────────────────────────────────────────────────
+  # Grafana  (vizualizace; datasource TimescaleDB je provisioned)
+  # UI:  http://localhost:3000  (admin / iot-dev — viz .env)
+  # Dashboardy samotné přijdou ve Fázi 5.
+  # ───────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: iot-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-iot-dev}
+      # Předáno kvůli interpolaci v provisioning/datasources/timescale.yml.
+      POSTGRES_USER: ${POSTGRES_USER:-iot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-iot-dev}
+      POSTGRES_DB: ${POSTGRES_DB:-iot}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
 volumes:
   emqx-data:
   emqx-log:
   ts-data:
+  grafana-data:

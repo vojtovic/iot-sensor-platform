@@ -1,0 +1,46 @@
+name: iot-sensor-platform
+
+# Sdílená infrastruktura (Fáze 2 roadmapy).
+#
+# Spuštění:   docker compose up -d
+# Zastavení:  docker compose down
+# Reset dat:  docker compose down -v   (smaže pojmenované volumy emqx-data/emqx-log)
+#
+# Konfigurace přes infra/.env (zkopíruj infra/.env.example).
+# Data brokeru jsou v pojmenovaných Docker volumech — nejsou v repu.
+
+services:
+  # ───────────────────────────────────────────────────────────────
+  # MQTT broker
+  # Dashboard:  http://localhost:18083  (admin / iot-dev — viz .env)
+  # MQTT:       tcp://localhost:1883
+  # WebSocket:  ws://localhost:8083/mqtt
+  # ───────────────────────────────────────────────────────────────
+  emqx:
+    image: emqx/emqx:5.8
+    container_name: iot-emqx
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "8083:8083"
+      - "18083:18083"
+    environment:
+      # Konfigurace přes env vars (doporučený postup EMQX 5 v Dockeru) —
+      # NEpřepisujeme emqx.conf, aby zůstaly výchozí listenery + dashboard.
+      EMQX_DASHBOARD__DEFAULT_USERNAME: ${EMQX_DASHBOARD_USERNAME:-admin}
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: ${EMQX_DASHBOARD_PASSWORD:-iot-dev}
+      # Anonymní připojení je ve výchozím stavu povoleno (žádné authn zdroje).
+      # Per-device autentizace + ACL přijde ve Fázi 4 (viz ROADMAP §7).
+    volumes:
+      - emqx-data:/opt/emqx/data
+      - emqx-log:/opt/emqx/log
+    healthcheck:
+      test: ["CMD", "/opt/emqx/bin/emqx", "ctl", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+volumes:
+  emqx-data:
+  emqx-log:

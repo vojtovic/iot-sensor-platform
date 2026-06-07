@@ -93,3 +93,8 @@ build/
 infra/data/
 **/pgdata/
 **/influxdata/
+
+# ──────────────────────────────────────────────────────────────
+#  graphify  (generovaný knowledge graph — necommituje se)
+# ──────────────────────────────────────────────────────────────
+graphify-out/

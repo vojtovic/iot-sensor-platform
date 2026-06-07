@@ -1,0 +1,27 @@
+[project]
+name = "iot-sensor-simulator"
+version = "0.1.0"
+description = "Sensor simulator / generátor zátěže pro IoT senzorickou platformu"
+requires-python = ">=3.11"
+dependencies = [
+    "aiomqtt>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+simulator = "simulator.__main__:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["simulator*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

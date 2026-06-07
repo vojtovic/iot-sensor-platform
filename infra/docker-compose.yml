@@ -163,6 +163,40 @@ services:
       retries: 6
       start_period: 20s
 
+  # RabbitMQ — primárně AMQP broker, MQTT přes plugin rabbitmq_mqtt.
+  # MQTT 1883 · management UI http://localhost:15672 (guest/guest)
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: iot-rabbitmq
+    profiles: ["rabbitmq"]
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "15672:15672"
+    volumes:
+      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 6
+      start_period: 30s
+
+  # ActiveMQ Artemis — Java multi-protokol broker, MQTT acceptor na 1883.
+  # MQTT 1883 · console http://localhost:8161 (artemis/artemis)
+  artemis:
+    image: apache/activemq-artemis:2.37.0
+    container_name: iot-artemis
+    profiles: ["artemis"]
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "8161:8161"
+    environment:
+      ANONYMOUS_LOGIN: "true"
+    # Bez healthchecku (image bez vhodného neblokujícího probe); pub/sub test.
+
 volumes:
   emqx-data:
   emqx-log:

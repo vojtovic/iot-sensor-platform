@@ -11,8 +11,8 @@ Postupuje se po krocích Fáze 2 (viz [ROADMAP](../ROADMAP.md#fáze-2--sdílená
 - [x] **Init skripty schématu** (`§5` model + seed data)
 - [x] **Grafana** — provisioned datasource → TimescaleDB
 
-> Tím je infrastruktura Fáze 2 hotová. Zbývá **sensor simulator**
-> (samostatná komponenta, viz [../simulator/](../simulator/)).
+> Infrastruktura Fáze 2 je hotová (broker + DB + Grafana + [simulátor](../simulator/)).
+> Navíc je k dispozici **sada 7 MQTT brokerů k porovnání** — viz níže.
 
 ## Rychlý start
 
@@ -68,13 +68,67 @@ docker run --rm --network host eclipse-mosquitto sh -c \
 
 V EMQX dashboardu **Monitoring → Topics** se objeví `v1/dev/test/telemetry`.
 
+## Porovnání MQTT brokerů
+
+K dispozici je 7 brokerů, každý pod vlastním **docker-compose profilem**. Vždy
+běží **jen jeden** (všechny mapují port 1883), takže simulátor i testy pořád míří
+na `localhost:1883`. Slouží to k porovnání brokerů (bod 2 zadání) jako
+**samostatný experiment** — oddělený od benchmarku backendových stacků (Fáze 3),
+aby se neměnily dvě proměnné najednou.
+
+| Broker | Profil | Jazyk / typ | MQTT | UI / extra |
+|---|---|---|---|---|
+| **EMQX** | `emqx` | Erlang, feature-rich | 1883 | dashboard 18083, WS 8083 |
+| **Mosquitto** | `mosquitto` | C, lehký (referenční) | 1883 | WS 9001 |
+| **NanoMQ** | `nanomq` | C/NNG, ultra-lehký edge | 1883 | HTTP API 8081 |
+| **HiveMQ CE** | `hivemq` | Java, enterprise | 1883 | WS 8000 |
+| **VerneMQ** | `vernemq` | Erlang, distribuovaný | 1883 | — |
+| **RabbitMQ** | `rabbitmq` | AMQP + MQTT plugin | 1883 | management 15672 |
+| **Artemis** | `artemis` | Java, multi-protokol | 1883 | console 8161 |
+
+### Přepínání brokerů
+
+Nejjednodušeji helper skriptem `./broker.sh` (zastaví vše + nahodí vybraný broker):
+
+```bash
+./broker.sh list              # vypíše dostupné brokery
+./broker.sh mosquitto         # přepne na Mosquitto (+ platforma DB/Grafana)
+./broker.sh nanomq --no-platform   # jen broker, bez DB/Grafany (lean benchmark)
+./broker.sh down              # zastaví vše
+```
+
+> Dokud nemáš docker bez `sudo` (čerstvě přidaná skupina `docker`), spouštěj
+> přes `sg docker -c './broker.sh emqx'`.
+
+Ručně přes profily:
+
+```bash
+docker compose --profile '*' down                          # zastav vše
+COMPOSE_PROFILES=platform,hivemq docker compose up -d       # nahoď HiveMQ + platformu
+```
+
+### Ověření brokeru
+
+Každý broker se dá ověřit stejným pub/sub testem (nezávislým na typu brokeru):
+
+```bash
+docker run --rm --network host eclipse-mosquitto \
+  timeout 6 mosquitto_sub -h localhost -t 'v1/dev/+/telemetry' -v &
+cd ../simulator && .venv/bin/python -m simulator --devices 2 --count 3 --seed 1
+```
+
+Všech 7 brokerů je ověřeno: simulátor → broker → subscriber, 6/6 zpráv.
+
 ## Konfigurace
 
 | Soubor | Co řeší |
 |---|---|
-| `docker-compose.yml` | služby, porty, volumy, healthcheck |
+| `docker-compose.yml` | služby (7 brokerů + platforma), profily, porty, volumy |
+| `broker.sh` | přepínání aktivního brokeru |
 | `timescale/init/*.sql` | schéma (§5), telemetrie hypertable, seed (běží při 1. startu) |
-| `.env` (lokální) | dashboard/DB hesla apod. (necommitované) |
+| `mosquitto/mosquitto.conf` | Mosquitto listener + anonymní přístup |
+| `rabbitmq/{rabbitmq.conf,enabled_plugins}` | RabbitMQ MQTT plugin + listener |
+| `.env` (lokální) | aktivní profily, dashboard/DB hesla (necommitované) |
 | `.env.example` | šablona pro `.env` (commitovaná) |
 
 EMQX se konfiguruje **přes proměnné prostředí** v `docker-compose.yml` (doporučený

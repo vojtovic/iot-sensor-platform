@@ -133,6 +133,36 @@ services:
     # Bez healthchecku: image nemá vhodný neblokující probe (nanomq_cli pub/sub
     # drží spojení). Živost se ověřuje pub/sub testem (viz README).
 
+  # HiveMQ Community Edition — Java, enterprise svět (CE = bez security ext,
+  # anonymní povoleno). Pomalejší start (JVM). MQTT 1883.
+  hivemq:
+    image: hivemq/hivemq-ce:2024.3
+    container_name: iot-hivemq
+    profiles: ["hivemq"]
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    # Bez healthchecku (image nemá nc/curl); živost přes pub/sub test.
+
+  # VerneMQ — Erlang, distribuovaný broker. Vyžaduje souhlas s EULA.
+  # MQTT 1883.
+  vernemq:
+    image: vernemq/vernemq:1.13.0
+    container_name: iot-vernemq
+    profiles: ["vernemq"]
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    environment:
+      DOCKER_VERNEMQ_ACCEPT_EULA: "yes"
+      DOCKER_VERNEMQ_ALLOW_ANONYMOUS: "on"
+    healthcheck:
+      test: ["CMD-SHELL", "vmq-admin cluster show >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
 volumes:
   emqx-data:
   emqx-log:

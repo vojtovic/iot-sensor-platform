@@ -97,10 +97,27 @@ Proto:
 - pro absolutní throughput by bylo třeba víc klientských strojů nebo
   specializovaný nástroj (`emqtt_bench`, `k6`) — viz TESTING.md §5.
 
+## Testovací prostředí
+
+Všechny brokery i klient běžely na **jednom stroji** (sdílí CPU — viz výhrady níže).
+
+| Komponenta | Specifikace |
+|---|---|
+| CPU | Intel Core i5-12450HX (8 jader / 12 vláken) |
+| RAM | 23 GiB |
+| Disk | NVMe SSD (WDC SN530 / Micron) |
+| OS | Arch Linux, kernel 6.19.9 |
+| Docker | 29.4.3 |
+| Klient | Python 3.14, aiomqtt (multiprocessing) |
+
+Verze brokerů: EMQX 5.8 · Mosquitto 2 · NanoMQ 0.22 · HiveMQ CE 2024.3 ·
+VerneMQ 1.13 · RabbitMQ 3.13 · ActiveMQ Artemis 2.37. Všichni s výchozí
+konfigurací (anonymní přístup), QoS dle běhu.
+
 ## Výsledky
 
 Běh 2026-06-07 (rates 1k–10k · 8 s/krok · **medián ze 3 opakování** · 20 klientů;
-laptop, jeden host). Grafy a CSV: `results/export/` (vygeneruj `python -m brokerbench.export`).
+jeden host — viz výše). Grafy a CSV: `results/export/` (vygeneruj `python -m brokerbench.export`).
 
 ### Srovnání při 5 000 zpráv/s
 

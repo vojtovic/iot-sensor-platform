@@ -36,6 +36,37 @@ python -m brokerbench --broker emqx --container iot-emqx --rates 1000,5000,10000
 > `sg docker -c './run_all.sh'`. Výsledky (JSON + souhrn) jdou do `results/`
 > (gitignored).
 
+### Stabilnější čísla (opakování, QoS, in-flight okno)
+
+```bash
+REPEAT=3 DURATION=8 ./run_all.sh          # každý krok 3× → medián
+QOS=0 ./run_all.sh                        # QoS 0 (bez ack flow control)
+```
+
+| Proměnná | Default | Význam |
+|---|---|---|
+| `REPEAT` / `--repeat` | 1 | opakování kroku (reportuje se medián) |
+| `QOS` / `--qos` | 1 | QoS publikace i odběru |
+| `INFLIGHT` / `--inflight` | 1000 | in-flight okno QoS1 subscriberu (paho default 20) |
+
+## Export výsledků
+
+Z `results/*.json` vygeneruje CSV, grafy a souhrnnou tabulku:
+
+```bash
+pip install -e ".[viz]"                   # matplotlib pro grafy (jednorázově)
+python -m brokerbench.export              # → results/export/
+python -m brokerbench.export --ref-rate 5000
+```
+
+Vznikne:
+- `results/export/benchmark.csv` — všechny brokery × kroky (do Excelu/Sheets),
+- `results/export/summary.md` — souhrnná tabulka v referenčním bodě (per QoS),
+- `results/export/*.png` — grafy: propustnost a p99 latence vs cíl, RAM a CPU
+  per broker (zvlášť pro každý QoS).
+
+CSV a souhrn fungují i bez matplotlib; grafy ho vyžadují.
+
 ### Parametry
 
 | Proměnná / přepínač | Default | Význam |

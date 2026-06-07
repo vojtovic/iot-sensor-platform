@@ -101,6 +101,38 @@ services:
       retries: 6
       start_period: 30s
 
+  # Eclipse Mosquitto — lehký broker v C, de-facto referenční MQTT.
+  # MQTT 1883 · WS 9001
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: iot-mosquitto
+    profiles: ["mosquitto"]
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 3 mosquitto_sub -t '$$SYS/#' -C 1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
+  # NanoMQ — ultra-lehký broker pro edge/IoT (od EMQX, v C/NNG).
+  # MQTT 1883 · HTTP API 8081
+  nanomq:
+    image: emqx/nanomq:0.22
+    container_name: iot-nanomq
+    profiles: ["nanomq"]
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "8081:8081"
+    # Bez healthchecku: image nemá vhodný neblokující probe (nanomq_cli pub/sub
+    # drží spojení). Živost se ověřuje pub/sub testem (viz README).
+
 volumes:
   emqx-data:
   emqx-log:

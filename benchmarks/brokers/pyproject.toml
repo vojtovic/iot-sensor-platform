@@ -14,6 +14,9 @@ dev = [
 viz = [
     "matplotlib>=3.8",
 ]
+db = [
+    "asyncpg>=0.29",          # pipeline benchmark: zápis do TimescaleDB
+]
 
 [build-system]
 requires = ["setuptools>=61"]

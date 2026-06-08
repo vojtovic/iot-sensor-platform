@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import time
+from datetime import datetime, timezone
 
 # Realistický payload odpovídající telemetrii (ROADMAP §6), ~200 B.
 _BASE = {
@@ -38,3 +39,44 @@ def read_t_ns(raw: bytes) -> int | None:
         return int(json.loads(raw)["t_ns"])
     except (ValueError, KeyError, TypeError):
         return None
+
+
+# ── Parsování pro ingestion do DB (pipeline benchmark) ───────────────────────
+# Čisté funkce bez závislostí (json/datetime) → testovatelné bez brokeru i DB.
+
+def parse_message(
+    raw: bytes,
+) -> tuple[str, int, int, list[tuple[str, float]]] | None:
+    """JSON payload → (device_id, seq, t_ns, [(quantity, value), …]) nebo None.
+
+    Pro ingestion do DB: vytáhne identitu, sekvenci, razítko a měření.
+    """
+    try:
+        m = json.loads(raw)
+        device_id = str(m["device_id"])
+        seq = int(m["seq"])
+        t_ns = int(m["t_ns"])
+        meas = [(str(x["ch"]), float(x["v"])) for x in m.get("measurements", [])]
+    except (ValueError, KeyError, TypeError):
+        return None
+    return device_id, seq, t_ns, meas
+
+
+def rows_from_message(
+    parsed: tuple[str, int, int, list[tuple[str, float]]],
+    channel_map: dict[tuple[str, str], int],
+) -> list[tuple[datetime, str, int, float, int, int]]:
+    """(device_id, seq, t_ns, meas) → řádky `telemetry` pro COPY.
+
+    Každé měření → jeden řádek (time, device_id, channel_id, value, quality, seq).
+    `channel_map`: {(device_id, quantity): channel_id}. Měření bez známého kanálu
+    se přeskočí (cizí/neregistrovaný kanál → backend by ho jinak odmítl na FK).
+    """
+    device_id, seq, t_ns, meas = parsed
+    ts = datetime.fromtimestamp(t_ns / 1e9, tz=timezone.utc)
+    rows: list[tuple[datetime, str, int, float, int, int]] = []
+    for quantity, value in meas:
+        cid = channel_map.get((device_id, quantity))
+        if cid is not None:
+            rows.append((ts, device_id, cid, value, 0, seq))
+    return rows

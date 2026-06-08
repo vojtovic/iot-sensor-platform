@@ -329,3 +329,55 @@ Vpravo: růst RAM — NanoMQ výrazně pod EMQX, JVM brokery vysoko.*
 > **efemerní porty / TIME_WAIT na klientovi**, takže část selhání u 10 000
 > (Mosquitto, HiveMQ, RabbitMQ, VerneMQ) je klientský artefakt, ne limit brokeru.
 > Spolehlivé je srovnání **RAM na spojení** a fakt, že EMQX/NanoMQ čistě dosáhly 10k.
+
+## End-to-end: broker → ingestion → TimescaleDB
+
+Zatímco testy výše měří **samotný broker** (publish → broker → subscriber, který
+zprávy jen počítá), tento test měří **celou pipeline** včetně zápisu do databáze:
+
+> publish → broker → **ingestion (dávkový COPY)** → **TimescaleDB (commit)**
+
+Cílem je zjistit, **kolik stojí ingestion + perzistence** oproti holému brokeru
+(modul `brokerbench.pipeline`).
+
+### Co se mění oproti broker-only
+
+| | broker-only | pipeline |
+|---|---|---|
+| konzument | počítá zprávy v paměti | zapisuje do TimescaleDB (COPY po dávkách) |
+| latence | publish → přijetí | publish → **COMMIT v DB** (durable) |
+| propustnost | přijatých zpráv/s | **uložených** zpráv/s |
+| CPU/RAM | kontejner brokeru | kontejner **TimescaleDB** |
+
+Jedna zpráva = 3 měření (co2/temp/rh) → **3 řádky** `telemetry`. Konzument před
+během založí bench zařízení a kanály (`telemetry` má FK na `device`/`channel`).
+Publisher je **stejný** jako u broker-only → zátěž je identická, srovnání férové.
+
+### Spuštění
+
+```bash
+cd benchmarks/brokers/
+pip install -e ".[dev,viz,db]"            # +asyncpg
+
+BROKER=emqx ./run_pipeline.sh             # nahodí broker I TimescaleDB, pak změří
+python -m brokerbench.export              # pipeline-emqx se přidá jako série do grafů
+```
+
+Parametry přes proměnné: `BROKER`, `RATES`, `DURATION`, `CLIENTS`, `QOS`, `REPEAT`,
+`BATCH` (řádků na dávku), `FLUSH_MS` (max stáří dávky), `DSN`.
+
+### Jak číst porovnání
+
+- **Latence a propustnost** jsou přímo srovnatelné s broker-only sérií **stejného
+  brokeru** → rozdíl = cena ingestionu a zápisu do DB.
+- **Dávkování** (`BATCH` / `FLUSH_MS`) je zásadní páka: větší dávky = vyšší
+  propustnost, ale vyšší latence (zpráva čeká na uzavření dávky). Default 500 řádků
+  / 100 ms. Zkus víc hodnot a ukaž křivku kompromisu.
+- **CPU/RAM** v pipeline = TimescaleDB (broker je změřen zvlášť) — na grafu CPU/RAM
+  nemíchej význam sloupců `pipeline-*` (DB) a holého brokeru.
+
+> **Férové srovnání:** spusť pipeline i broker-only na **stejném stroji** (viz
+> baseline výše). Python klient zůstává společným úzkým hrdlem (metodická výhrada
+> platí stejně) — proto jsou nejvíc vypovídající **latence** a **CPU/RAM DB** při
+> zátěži, kde je ztráta 0.
+

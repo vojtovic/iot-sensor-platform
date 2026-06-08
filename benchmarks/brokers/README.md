@@ -263,6 +263,11 @@ Spouští `./run_failtest.sh` (modul `brokerbench.failtest`).
 | **Mosquitto** | 0 ztrát | ztratil vše (500) | ❌ ne (default in-memory) |
 | **NanoMQ** | ztratil vše (500) | ztratil vše (500) | ❌ ne (bez offline fronty) |
 
+![Ztráta zpráv při výpadku](charts/failtest-loss.png)
+
+*Modrý sloupec = ztráta i bez restartu (NanoMQ), oranžový = ztráta až po restartu
+(EMQX, Mosquitto). HiveMQ/VerneMQ/RabbitMQ/Artemis bez sloupce = 0 ztrát.*
+
 - **4 brokery přežijí restart** — HiveMQ, VerneMQ, RabbitMQ, Artemis persistují
   frontu na disk. To vysvětluje i nižší QoS1 propustnost HiveMQ (durabilita stojí výkon).
 - **EMQX a Mosquitto** drží frontu jen v paměti (lze zapnout persistenci v configu);
@@ -290,6 +295,12 @@ Robustní zjištění:
 - **Artemis selhává na škále spojení** — ani 1000 MQTT spojení spolehlivě
   nenaváže (ověřeno i samostatně: 500→0, 1000→~600). Je to enterprise broker
   (AMQP/JMS) pro málo „těžkých" spojení, ne pro tisíce IoT zařízení.
+
+![Navázaná spojení vs cíl](charts/scaletest-connected.png)
+![RAM brokeru vs počet spojení](charts/scaletest-ram.png)
+
+*Vlevo: EMQX a NanoMQ sledují ideál (vše navázáno) do 10k; Artemis je na nule.
+Vpravo: růst RAM — NanoMQ výrazně pod EMQX, JVM brokery vysoko.*
 
 > **Výhrada:** rychlé otevírání+zavírání tisíců spojení v sekvenci vyčerpává
 > **efemerní porty / TIME_WAIT na klientovi**, takže část selhání u 10 000

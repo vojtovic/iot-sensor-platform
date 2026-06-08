@@ -26,6 +26,8 @@ def load_results(results_dir: Path) -> list[dict]:
     """Načte všechny *.json (kromě adresáře export/) a zploští na řádky kroků."""
     rows: list[dict] = []
     for jf in sorted(results_dir.glob("*.json")):
+        if jf.name.startswith(("failtest-", "scaletest-")):
+            continue  # jiný tvar — řeší vlastní grafy
         try:
             data = json.loads(jf.read_text())
         except (ValueError, OSError):

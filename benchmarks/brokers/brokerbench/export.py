@@ -113,8 +113,8 @@ def write_charts(rows: list[dict], out_dir: Path, ref_rate: int) -> list[str]:
                 x, y = series(b, qos, key)
                 if x:
                     ax.plot(x, y, marker="o", label=b)
-            if key == "throughput":  # ideální linie x=y
-                allx = sorted({r["target_rate"] for r in rows})
+            if key == "throughput":  # ideální linie x=y (jen rozsah daného QoS)
+                allx = sorted({r["target_rate"] for r in rows if r["qos"] == qos})
                 ax.plot(allx, allx, "k--", alpha=0.3, label="ideál (cíl)")
             ax.set_xlabel("cílová rychlost (zpráv/s)")
             ax.set_ylabel(ylabel)

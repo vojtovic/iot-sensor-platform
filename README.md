@@ -106,6 +106,11 @@ Srovnání při **5 000 zpráv/s, QoS 1** (medián ze 3 běhů):
 (durabilita vs. propustnost). **Mosquitto** je nejvyrovnanější (nejnižší CPU i
 latence), **NanoMQ** nejmenší RAM.
 
+Kromě výkonu byly změřeny i **spolehlivost při výpadku** (restart brokeru:
+přežijí jen HiveMQ, VerneMQ, RabbitMQ, Artemis — persistují QoS1 na disk) a
+**škálovatelnost spojení** (EMQX a NanoMQ čistě 10 000 spojení; Artemis na
+škále spojení selhává). Detaily v [benchmarks/brokers/](benchmarks/brokers/).
+
 ![Latence p99 vs zatížení, QoS 1](benchmarks/brokers/charts/latency-p99-qos1.png)
 ![CPU při 5000/s, QoS 1](benchmarks/brokers/charts/cpu-qos1-5000.png)
 

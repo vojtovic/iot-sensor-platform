@@ -245,3 +245,51 @@ nejvýš, RabbitMQ (hnědá) láme nejdřív (~15k). Strop je z větší části
   CPU je průměr přes celý krok (dřívější `docker stats` vzorkování dávalo u
   lehkých brokerů chybně 0 %).
 - Pro publikovatelná čísla: víc klientských strojů / `emqtt_bench` (TESTING.md §5).
+
+## Spolehlivost při výpadku brokeru
+
+Klíčový test spolehlivosti (TESTING.md): subscriber si založí **trvalou session**
+(clean_session=False), publisher pošle 500 zpráv (QoS 1) → broker je zařadí do
+fronty pro odpojeného subscribera → **restart brokeru** → kolik zpráv přežije?
+Spouští `./run_failtest.sh` (modul `brokerbench.failtest`).
+
+| Broker | bez restartu | s restartem | persistuje QoS1 na disk? |
+|---|---|---|---|
+| **HiveMQ CE** | 0 ztrát | **0 ztrát** | ✅ ano |
+| **VerneMQ** | 0 ztrát | **0 ztrát** | ✅ ano |
+| **RabbitMQ** | 0 ztrát | **0 ztrát** | ✅ ano |
+| **Artemis** | 0 ztrát | **0 ztrát** | ✅ ano |
+| **EMQX** | 0 ztrát | ztratil vše (500) | ❌ ne (default in-memory) |
+| **Mosquitto** | 0 ztrát | ztratil vše (500) | ❌ ne (default in-memory) |
+| **NanoMQ** | ztratil vše (500) | ztratil vše (500) | ❌ ne (bez offline fronty) |
+
+- **4 brokery přežijí restart** — HiveMQ, VerneMQ, RabbitMQ, Artemis persistují
+  frontu na disk. To vysvětluje i nižší QoS1 propustnost HiveMQ (durabilita stojí výkon).
+- **EMQX a Mosquitto** drží frontu jen v paměti (lze zapnout persistenci v configu);
+  po pádu je pryč.
+- **NanoMQ** offline frontu vůbec nedrží (ultra-lehký edge broker) — zprávy pro
+  odpojeného subscribera zahodí i bez restartu.
+- **Duplikáty:** QoS 1 je „at least once" — občas dorazí zpráva víckrát (proto
+  telemetrie nese `seq` na deduplikaci). V testu se objevily nahodile.
+
+## Škálovatelnost počtu spojení
+
+Kolik souběžných zařízení broker unese? `./run_scaletest.sh` otevře N spojení
+najednou a měří úspěšnost, rychlost a RAM (modul `brokerbench.scaletest`).
+Pozn.: výchozí fd limit kontejneru (1024) byl zvednut na 65536 (viz compose).
+
+Robustní zjištění:
+
+- **EMQX a NanoMQ** zvládly **10 000 spojení** v jednom průchodu bez ztrát
+  (NanoMQ 165 MB, EMQX 596 MB — NanoMQ výrazně lehčí).
+- **RAM na spojení** (nejstabilnější metrika): nejúspornější **Mosquitto ~9 KB**
+  a **NanoMQ ~16 KB**; JVM/Erlang brokery 14–38 KB+; navíc velká základní stopa
+  (stovky MB) u EMQX/HiveMQ/RabbitMQ/Artemis.
+- **Artemis selhává na škále spojení** — ani 1000 MQTT spojení spolehlivě
+  nenaváže (ověřeno i samostatně: 500→0, 1000→~600). Je to enterprise broker
+  (AMQP/JMS) pro málo „těžkých" spojení, ne pro tisíce IoT zařízení.
+
+> **Výhrada:** rychlé otevírání+zavírání tisíců spojení v sekvenci vyčerpává
+> **efemerní porty / TIME_WAIT na klientovi**, takže část selhání u 10 000
+> (Mosquitto, HiveMQ, RabbitMQ, VerneMQ) je klientský artefakt, ne limit brokeru.
+> Spolehlivé je srovnání **RAM na spojení** a fakt, že EMQX/NanoMQ čistě dosáhly 10k.

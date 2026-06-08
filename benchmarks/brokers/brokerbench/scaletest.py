@@ -11,9 +11,13 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import resource
 import time
 from dataclasses import dataclass
+
+try:
+    import resource  # jen Unix; na Windows není (fd limit se neřeší)
+except ImportError:
+    resource = None
 
 import aiomqtt
 from paho.mqtt.client import MQTTv311
@@ -34,7 +38,9 @@ class ScaleResult:
 
 
 def _raise_fd_limit(needed: int) -> None:
-    """Zvedne soft limit file descriptorů (kvůli mnoha spojením)."""
+    """Zvedne soft limit file descriptorů (kvůli mnoha spojením). Jen Unix."""
+    if resource is None:  # Windows — fd limit se řeší jinak, přeskoč
+        return
     soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
     want = min(hard, needed + 256)
     if soft < want:

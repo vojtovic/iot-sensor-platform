@@ -49,6 +49,12 @@ kroku se měří:
 Brokery i fd limity řeší `../../infra/docker-compose.yml` (image se stáhnou samy).
 Absolutní čísla budou jiná podle HW — relativní srovnání platí napříč stroji.
 
+> **Windows:** nejjednodušší je **WSL2** (Linux uvnitř Windows + Docker Desktop
+> s WSL integrací) — tam vše běží beze změny. Nativní Windows má háčky: `.sh`
+> skripty potřebují Git Bash, `--network host` (readiness testy) na Docker
+> Desktopu funguje omezeně a měření spojení se chová jinak (fd limity, TIME_WAIT).
+> CPU/RAM přes `docker exec` cgroup funguje i tam (kontejnery běží v Linux VM).
+
 ### Kompletní reprodukce
 
 ```bash

@@ -35,6 +35,8 @@ class StepResult:
     cpu_pct_max: float = 0.0
     mem_mb_avg: float = 0.0
     mem_mb_max: float = 0.0
+    ing_cpu_pct: float = 0.0   # CPU % procesu ingestionu (pipeline benchmark)
+    ing_mem_mb: float = 0.0    # RSS ingestionu v MB (pipeline benchmark)
 
 
 def median_step(results: list[StepResult]) -> StepResult:
@@ -55,6 +57,8 @@ def median_step(results: list[StepResult]) -> StepResult:
         cpu_pct_max=median(r.cpu_pct_max for r in results),
         mem_mb_avg=median(r.mem_mb_avg for r in results),
         mem_mb_max=median(r.mem_mb_max for r in results),
+        ing_cpu_pct=median(r.ing_cpu_pct for r in results),
+        ing_mem_mb=median(r.ing_mem_mb for r in results),
     )
 
 

@@ -357,27 +357,61 @@ Publisher je **stejný** jako u broker-only → zátěž je identická, srovnán
 
 ```bash
 cd benchmarks/brokers/
-pip install -e ".[dev,viz,db]"            # +asyncpg
+pip install -e ".[dev,viz,db]"            # +asyncpg, psutil
 
 BROKER=emqx ./run_pipeline.sh             # nahodí broker I TimescaleDB, pak změří
 python -m brokerbench.export              # pipeline-emqx se přidá jako série do grafů
 ```
 
 Parametry přes proměnné: `BROKER`, `RATES`, `DURATION`, `CLIENTS`, `QOS`, `REPEAT`,
-`BATCH` (řádků na dávku), `FLUSH_MS` (max stáří dávky), `DSN`.
+`BATCH` (řádků na dávku), `FLUSH_MS` (max stáří dávky), `DRAIN`, `WARMUP` (1/0), `DSN`.
+
+Skript navíc před měřením **zastaví Grafanu** (ať nepere o CPU s brokerem) a
+`pipeline.py` pustí **zahřívací krok** a vypíše `synchronous_commit`/`fsync`
+(durabilita ovlivňuje latenci).
 
 ### Jak číst porovnání
 
-- **Latence a propustnost** jsou přímo srovnatelné s broker-only sérií **stejného
-  brokeru** → rozdíl = cena ingestionu a zápisu do DB.
+- **Latence a propustnost** porovnávej s broker-only sérií **stejného brokeru**
+  → rozdíl = cena ingestionu a zápisu do DB. Opírej se o **p95** (p99/`max` mají při
+  krátkém kroku málo vzorků → šum; sniž `SAMPLE_EVERY` nebo prodluž `DURATION`).
 - **Dávkování** (`BATCH` / `FLUSH_MS`) je zásadní páka: větší dávky = vyšší
-  propustnost, ale vyšší latence (zpráva čeká na uzavření dávky). Default 500 řádků
-  / 100 ms. Zkus víc hodnot a ukaž křivku kompromisu.
-- **CPU/RAM** v pipeline = TimescaleDB (broker je změřen zvlášť) — na grafu CPU/RAM
-  nemíchej význam sloupců `pipeline-*` (DB) a holého brokeru.
+  propustnost, ale vyšší latence (zpráva čeká na uzavření dávky). Místo jednoho bodu
+  ukaž **křivku** přes `FLUSH_MS` (50/100/200 ms) — to je pěkný výsledek do textu.
+- **Durabilita:** latence zahrnuje fsync WAL; `pipeline.py` vypíše a uloží
+  `synchronous_commit`/`fsync` → uveď je (jinak čísla nejsou reprodukovatelná).
+- **CPU/RAM:** `DB CPU/RAM` = kontejner TimescaleDB; `ING CPU/RAM` = proces
+  konzumenta (psutil). Skutečná „systémová cena" = **DB + ingester** (broker je
+  změřen zvlášť). Na grafu CPU/RAM nemíchej `pipeline-*` (DB) s holým brokerem.
 
-> **Férové srovnání:** spusť pipeline i broker-only na **stejném stroji** (viz
-> baseline výše). Python klient zůstává společným úzkým hrdlem (metodická výhrada
-> platí stejně) — proto jsou nejvíc vypovídající **latence** a **CPU/RAM DB** při
-> zátěži, kde je ztráta 0.
+### Metodická výhrada (pipeline)
+
+- **Jeden Python konzument je úzké hrdlo dřív než TimescaleDB** → výsledek je „cena
+  tohoto ingesteru", ne zápisová kapacita DB. Pro strop DB by bylo třeba víc
+  konzumentů (MQTT 5 shared subscription) nebo `COPY` z víc workerů.
+- **Propustnost** má smysl tam, kde je **ztráta ≈ 0**; při saturaci je „ztráta"
+  z větší části nedoběhnutý backlog (utnutý `DRAIN`), ne ztráta v DB.
+- **Prázdná tabulka** (`--reset`) = nejlepší případ zápisu (malé indexy); reálná
+  hypertable roste — pro úplnost změř i s předplněnou tabulkou.
+- **Férové srovnání:** pipeline běží s DB (+ broker), proto skript zastaví Grafanu a
+  doporučuje přeměřit i **broker-only se zapnutou DB**, ať mají obě varianty stejné
+  běžící kontejnery (jinak srovnáváš různá prostředí).
+
+### Výsledky
+
+> ⚠️ **Zatím nezměřeno.** Spusť `./run_pipeline.sh` na **stejném stroji jako
+> broker-only baseline** (viz *Testovací prostředí* výše) a doplň. Čísla z jiného
+> stroje/OS nejsou s baseline srovnatelná, proto je sem **nevkládáme** (raději nic
+> než zavádějící data).
+
+Po běhu vyplň (formát jako broker tabulky), referenční bod např. **5 000 zpráv/s, QoS 1**:
+
+| Varianta | uloženo/s | ztráta % | p95 ms | p99 ms | DB CPU % | DB RAM MB | ING CPU % | ING RAM MB |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| broker-only `emqx` (DB zapnutá) | — | — | — | — | — | — | — | — |
+| pipeline `emqx → DB` | — | — | — | — | — | — | — | — |
+
+Doplň i **závěr**: o kolik vzroste latence (p95) a klesne propustnost přidáním
+ingestionu+DB a jak to ovlivní `FLUSH_MS` (křivka) — to je jádro odpovědi na
+„má to vliv na výkon".
 

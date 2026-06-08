@@ -16,6 +16,7 @@ viz = [
 ]
 db = [
     "asyncpg>=0.29",          # pipeline benchmark: zápis do TimescaleDB
+    "psutil>=5.9",            # měření CPU/RAM procesu ingestionu
 ]
 
 [build-system]

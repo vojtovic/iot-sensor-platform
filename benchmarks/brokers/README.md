@@ -171,6 +171,21 @@ RAM = working set kontejneru (memory.current − cache).
 | **RabbitMQ** | 5 000 | 0 | 11.6 | 84 | 148 |
 | **EMQX** | 5 000 | 0 | 16.9 | 132 | 254 |
 
+**QoS 0 — hledání stropu (rampa 5k → 30k):** protože při 5 000/s je propustnost
+nezajímavá (všichni stíhají), byla QoS 0 změřena i do 30 000/s:
+
+| Cílová rychlost | Chování |
+|---|---|
+| do **15 000/s** | všichni 0 ztrát, latence roste úměrně |
+| **20 000/s** | většinou ještě 0 ztrát, ale p99 vyletí na 3–6 s (roste backlog) |
+| **25 000/s** | první ztráty (Mosquitto 5 %, ostatní 12–36 %) |
+| **30 000/s** | saturace, ztráty 30–49 %, propustnost klesá na ~13–18k |
+
+Strop ~**20 000/s** je z větší části daný **klientem** (jeden subscriber proces),
+ne brokery — ale i tak se projevily rozdíly: **RabbitMQ láme nejdřív** (p99 už
+u 10 000/s skočí na ~1,5 s, ostatní pod 120 ms), **Mosquitto drží nejdéle**
+(ještě 25k s pouhými 5 % ztrát).
+
 ### Co z toho plyne
 
 - **Mosquitto = nejvyrovnanější:** nejnižší CPU (13–16 %) i RAM (~7–11 MB) a
@@ -213,16 +228,19 @@ NanoMQ/Mosquitto/Artemis sledují ideál až do 10 000/s; HiveMQ je placatý na 
 Mosquitto má zdaleka nejnižší CPU; EMQX nejvyšší (Erlang VM). RAM: lehké brokery
 jednotky MB vs. JVM/Erlang stovky MB.
 
-> **Pozn. k `throughput-qos0.png`:** je to jen jedna čára na diagonále, protože
-> při QoS 0 **každý broker trefil každou cílovou rychlost** až do 10 000/s (0 ztrát)
-> — žádný nebyl úzké hrdlo, všechny křivky splynou s ideálem (cíl = dosaženo).
-> To je samo o sobě výsledek: při QoS 0 limituje až klient, ne broker. Rozdíly
-> mezi brokery jsou u QoS 0 vidět v latenci/CPU/RAM, ne v propustnosti.
+**Propustnost QoS 0 (rampa do 30 000/s)** — kde se odlomí od ideálu:
+
+![Propustnost, QoS 0](charts/throughput-qos0.png)
+
+Všichni sledují ideál do ~20 000/s, pak saturace. Mosquitto (červená) vyjede
+nejvýš, RabbitMQ (hnědá) láme nejdřív (~15k). Strop je z větší části klientský
+(jeden subscriber), ale RabbitMQ se odlišil reálně.
 
 ### Výhrady ke konkrétním číslům
 
-- **Jeden host** (Python klient i brokery sdílí CPU) → strop ~10 000/s je
-  **klientský**, ne brokeru. Čísla jsou relativní (stejný klient pro všechny).
+- **Jeden host** (Python klient i brokery sdílí CPU) → strop propustnosti
+  (~20 000/s QoS 0) je z větší části **klientský** (jeden subscriber proces), ne
+  brokeru. Čísla jsou relativní (stejný klient pro všechny).
 - **CPU/RAM** se čte z cgroup v2 (`cpu.stat` usage_usec, `memory.current`);
   CPU je průměr přes celý krok (dřívější `docker stats` vzorkování dávalo u
   lehkých brokerů chybně 0 %).

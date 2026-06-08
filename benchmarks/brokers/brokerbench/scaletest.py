@@ -98,17 +98,26 @@ def main() -> None:
                     help="čárkou oddělené cílové počty spojení")
     ap.add_argument("--container", default=None, help="kontejner pro měření RAM")
     ap.add_argument("--concurrency", type=int, default=200)
+    ap.add_argument("--json", default=None, help="cesta pro uložení výsledků v JSON")
     args = ap.parse_args()
 
     counts = [int(x) for x in args.counts.split(",") if x.strip()]
     print(f"Škálovatelnost spojení — {args.broker} ({args.host}:{args.port})")
     print("| spojení | navázáno | selhalo | čas s | conn/s | RAM MB | KB/spojení |")
     print("|---:|---:|---:|---:|---:|---:|---:|")
+    steps = []
     for n in counts:
         r = asyncio.run(run_scale_step(args.host, args.port, n,
                                        args.container, args.concurrency))
+        steps.append(vars(r))
         print(f"| {r.target} | {r.connected} | {r.failed} | {r.connect_s:.1f} "
               f"| {r.conn_per_s:,.0f} | {r.mem_after_mb:.0f} | {r.mem_per_conn_kb:.1f} |")
+    if args.json:
+        import json
+        from pathlib import Path
+        p = Path(args.json)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps({"broker": args.broker, "steps": steps}, indent=2))
 
 
 if __name__ == "__main__":

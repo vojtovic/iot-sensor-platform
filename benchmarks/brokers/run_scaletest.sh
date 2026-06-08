@@ -39,7 +39,8 @@ for b in $BROKERS; do
   "$INFRA/broker.sh" "$b" --no-platform
   ready || { echo "($b nenaběhl)" | tee -a "$OUT"; continue; }
   "$PY" -m brokerbench.scaletest --broker "$b" --container "iot-$b" \
-    --counts "$COUNTS" --concurrency 300 | tee -a "$OUT"
+    --counts "$COUNTS" --concurrency 300 \
+    --json "results/scaletest-$b-$STAMP.json" | tee -a "$OUT"
   echo | tee -a "$OUT"
 done
 

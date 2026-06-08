@@ -134,15 +134,35 @@ def main() -> None:
     ap.add_argument("--port", type=int, default=1883)
     ap.add_argument("--n", type=int, default=500, help="počet zpráv (seq 1..N)")
     ap.add_argument("--container", default=None,
-                    help="docker kontejner brokeru pro restart (jinak bez restartu)")
+                    help="docker kontejner brokeru pro restart (oba běhy: kontrola + restart)")
+    ap.add_argument("--json", default=None, help="cesta pro uložení výsledku v JSON")
     args = ap.parse_args()
 
-    res = asyncio.run(run_failtest(args.host, args.port, args.n,
-                                   restart_container=args.container))
-    typ = "S RESTARTEM" if res.restarted else "bez restartu (kontrola)"
-    print(f"[{args.broker}] {typ}: posláno {res.n}, "
-          f"doručeno {res.received_unique}, ztráta {res.lost} "
-          f"({res.lost / res.n * 100:.1f} %), duplikáty {res.duplicates}")
+    def line(res: FailResult) -> str:
+        typ = "S RESTARTEM" if res.restarted else "bez restartu (kontrola)"
+        return (f"[{args.broker}] {typ}: posláno {res.n}, doručeno {res.received_unique}, "
+                f"ztráta {res.lost} ({res.lost / res.n * 100:.1f} %), duplikáty {res.duplicates}")
+
+    # kontrola (bez restartu)
+    ctrl = asyncio.run(run_failtest(args.host, args.port, args.n))
+    print(line(ctrl))
+    rest = None
+    if args.container:
+        rest = asyncio.run(run_failtest(args.host, args.port, args.n,
+                                        restart_container=args.container))
+        print(line(rest))
+
+    if args.json:
+        import json
+        from pathlib import Path
+        p = Path(args.json)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps({
+            "broker": args.broker, "n": args.n,
+            "control": {"lost": ctrl.lost, "duplicates": ctrl.duplicates},
+            "restart": ({"lost": rest.lost, "duplicates": rest.duplicates}
+                        if rest else None),
+        }, indent=2))
 
 
 if __name__ == "__main__":

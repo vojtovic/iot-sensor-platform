@@ -42,12 +42,12 @@ for b in $BROKERS; do
   "$INFRA/broker.sh" "$b" --no-platform
   ready || { echo "| $b | nenaběhl | — | — |" | tee -a "$OUT"; continue; }
 
-  ctrl=$("$PY" -m brokerbench.failtest --broker "$b" --n "$N" 2>/dev/null \
-         | sed -E 's/.*ztráta ([0-9]+).*duplikáty ([0-9]+)/\1\/\2/')
-  rest=$("$PY" -m brokerbench.failtest --broker "$b" --n "$N" --container "iot-$b" 2>/dev/null \
-         | sed -E 's/.*ztráta ([0-9]+).*duplikáty ([0-9]+)/\1\/\2/')
+  # jeden běh dělá kontrolu i restart a zapíše JSON
+  out=$("$PY" -m brokerbench.failtest --broker "$b" --n "$N" --container "iot-$b" \
+        --json "results/failtest-$b-$STAMP.json" 2>/dev/null)
+  ctrl=$(echo "$out" | grep -i 'kontrola' | sed -E 's/.*ztráta ([0-9]+).*duplikáty ([0-9]+)/\1\/\2/')
+  rest=$(echo "$out" | grep -i 'S RESTARTEM' | sed -E 's/.*ztráta ([0-9]+).*duplikáty ([0-9]+)/\1\/\2/')
 
-  # "persistuje" = po restartu žádná ztráta
   lost_rest="${rest%%/*}"
   if [ "$lost_rest" = "0" ]; then pers="✅ ano"; else pers="❌ ne"; fi
 

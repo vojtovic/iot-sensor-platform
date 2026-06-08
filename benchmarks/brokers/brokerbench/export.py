@@ -153,6 +153,96 @@ def write_charts(rows: list[dict], out_dir: Path, ref_rate: int) -> list[str]:
     return written
 
 
+def _latest_per_broker(results_dir: Path, prefix: str) -> dict[str, dict]:
+    """Načte nejnovější JSON na broker pro daný prefix (failtest-/scaletest-)."""
+    by_broker: dict[str, dict] = {}
+    for jf in sorted(results_dir.glob(f"{prefix}*.json")):
+        try:
+            data = json.loads(jf.read_text())
+        except (ValueError, OSError):
+            continue
+        b = data.get("broker", jf.stem)
+        by_broker[b] = data  # pozdější (setříděné) přepíše dřívější
+    return by_broker
+
+
+def write_failtest_chart(results_dir: Path, out_dir: Path) -> list[str]:
+    """Sloupcový graf ztráty zpráv (kontrola vs restart) per broker."""
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError:
+        return []
+    data = _latest_per_broker(results_dir, "failtest-")
+    if not data:
+        return []
+    brokers = sorted(data)
+    ctrl = [data[b].get("control", {}).get("lost", 0) for b in brokers]
+    rest = [(data[b].get("restart") or {}).get("lost", 0) for b in brokers]
+    n = data[brokers[0]].get("n", 500)
+
+    import numpy as np
+    x = np.arange(len(brokers))
+    w = 0.38
+    fig, ax = plt.subplots(figsize=(9, 5))
+    ax.bar(x - w / 2, ctrl, w, label="bez restartu")
+    ax.bar(x + w / 2, rest, w, label="s restartem")
+    ax.set_xticks(x, brokers, rotation=20)
+    ax.set_ylabel(f"ztracené zprávy (z {n})")
+    ax.set_title("Spolehlivost při výpadku — ztráta zpráv (QoS 1, trvalá session)")
+    ax.legend()
+    ax.grid(True, axis="y", alpha=0.3)
+    fig.tight_layout()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    p = out_dir / "failtest-loss.png"
+    fig.savefig(p, dpi=120)
+    plt.close(fig)
+    return [str(p)]
+
+
+def write_scaletest_charts(results_dir: Path, out_dir: Path) -> list[str]:
+    """Grafy škálovatelnosti: navázaná spojení a RAM vs cílový počet."""
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError:
+        return []
+    data = _latest_per_broker(results_dir, "scaletest-")
+    if not data:
+        return []
+    brokers = sorted(data)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    written: list[str] = []
+
+    for key, ylabel, fname, ideal in [
+        ("connected", "navázaná spojení", "scaletest-connected.png", True),
+        ("mem_after_mb", "RAM brokeru (MB)", "scaletest-ram.png", False),
+    ]:
+        fig, ax = plt.subplots(figsize=(9, 5))
+        for b in brokers:
+            steps = data[b].get("steps", [])
+            xs = [s["target"] for s in steps]
+            ys = [s[key] for s in steps]
+            if xs:
+                ax.plot(xs, ys, marker="o", label=b)
+        if ideal:
+            allx = sorted({s["target"] for b in brokers for s in data[b].get("steps", [])})
+            ax.plot(allx, allx, "k--", alpha=0.3, label="ideál (vše navázáno)")
+        ax.set_xlabel("cílový počet spojení")
+        ax.set_ylabel(ylabel)
+        ax.set_title(f"Škálovatelnost spojení — {ylabel}")
+        ax.grid(True, alpha=0.3)
+        ax.legend(fontsize=8)
+        fig.tight_layout()
+        p = out_dir / fname
+        fig.savefig(p, dpi=120)
+        plt.close(fig)
+        written.append(str(p))
+    return written
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(prog="brokerbench.export", description="Export výsledků")
     ap.add_argument("--results-dir", default="results")
@@ -160,21 +250,25 @@ def main() -> None:
     ap.add_argument("--ref-rate", type=int, default=5000)
     args = ap.parse_args()
 
-    rows = load_results(Path(args.results_dir))
-    if not rows:
-        print(f"Žádné výsledky v {args.results_dir}/")
-        return
+    results_dir = Path(args.results_dir)
     out = Path(args.out)
-    write_csv(rows, out / "benchmark.csv")
-    write_summary_md(rows, out / "summary.md", args.ref_rate)
-    charts = write_charts(rows, out, args.ref_rate)
+    rows = load_results(results_dir)
+    charts: list[str] = []
+    if rows:
+        write_csv(rows, out / "benchmark.csv")
+        write_summary_md(rows, out / "summary.md", args.ref_rate)
+        charts += write_charts(rows, out, args.ref_rate)
+        print(f"CSV:    {out/'benchmark.csv'}  ({len(rows)} řádků)")
+        print(f"Souhrn: {out/'summary.md'}")
 
-    print(f"CSV:    {out/'benchmark.csv'}  ({len(rows)} řádků)")
-    print(f"Souhrn: {out/'summary.md'}")
+    # grafy testů výpadku a škálovatelnosti (pokud jsou JSON výsledky)
+    charts += write_failtest_chart(results_dir, out)
+    charts += write_scaletest_charts(results_dir, out)
+
     if charts:
         print(f"Grafy:  {len(charts)} PNG v {out}/")
-    else:
-        print("Grafy:  matplotlib není nainstalován — `pip install -e \".[viz]\"`")
+    elif not rows:
+        print(f"Žádné výsledky v {args.results_dir}/ (nebo chybí matplotlib)")
 
 
 if __name__ == "__main__":

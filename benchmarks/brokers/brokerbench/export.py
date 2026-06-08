@@ -26,8 +26,10 @@ def load_results(results_dir: Path) -> list[dict]:
     """Načte všechny *.json (kromě adresáře export/) a zploští na řádky kroků."""
     rows: list[dict] = []
     for jf in sorted(results_dir.glob("*.json")):
-        if jf.name.startswith(("failtest-", "scaletest-")):
-            continue  # jiný tvar — řeší vlastní grafy
+        if jf.name.startswith(("failtest-", "scaletest-", "pipeline-")):
+            continue  # jiný tvar / vlastní grafy
+        if "-withdb" in jf.name:
+            continue  # pipeline baseline — nepatří do čistého broker srovnání
         try:
             data = json.loads(jf.read_text())
         except (ValueError, OSError):
@@ -245,6 +247,78 @@ def write_scaletest_charts(results_dir: Path, out_dir: Path) -> list[str]:
     return written
 
 
+def write_pipeline_chart(results_dir: Path, out_dir: Path) -> list[str]:
+    """Graf pipeline: latence (p95) a propustnost broker-only vs end-to-end (DB)."""
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError:
+        return []
+
+    def latest(glob_pat: str):
+        files = sorted(results_dir.glob(glob_pat))
+        if not files:
+            return None
+        try:
+            return json.loads(files[-1].read_text())
+        except (ValueError, OSError):
+            return None
+
+    pipe = latest("pipeline-*.json")
+    base = latest("*-withdb-*.json")
+    if not pipe:
+        return []
+
+    def series(d, key):
+        steps = d.get("steps", [])
+        xs = [s["target_rate"] for s in steps]
+        if key == "p95":
+            ys = [s.get("lat", {}).get("p95", 0) for s in steps]
+        else:
+            ys = [s.get(key, 0) for s in steps]
+        return xs, ys
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    written: list[str] = []
+
+    # Latence p95: broker-only vs pipeline (log škála — pipeline saturuje dřív).
+    fig, ax = plt.subplots(figsize=(8, 5))
+    if base:
+        x, y = series(base, "p95"); ax.plot(x, y, marker="o", label="broker-only (emqx)")
+    x, y = series(pipe, "p95"); ax.plot(x, y, marker="o", label="pipeline (emqx → DB)")
+    ax.set_xlabel("cílová rychlost (zpráv/s)")
+    ax.set_ylabel("latence p95 (ms)")
+    ax.set_yscale("log")
+    ax.set_title("Cena ingestionu + TimescaleDB — latence p95")
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+    fig.tight_layout()
+    p = out_dir / "pipeline-latency.png"
+    fig.savefig(p, dpi=120)
+    plt.close(fig)
+    written.append(str(p))
+
+    # Propustnost (uloženo/s) vs cíl.
+    fig, ax = plt.subplots(figsize=(8, 5))
+    if base:
+        x, y = series(base, "throughput"); ax.plot(x, y, marker="o", label="broker-only (emqx)")
+    x, y = series(pipe, "throughput"); ax.plot(x, y, marker="o", label="pipeline (emqx → DB)")
+    allx = sorted({s["target_rate"] for s in pipe.get("steps", [])})
+    ax.plot(allx, allx, "k--", alpha=0.3, label="ideál (cíl)")
+    ax.set_xlabel("cílová rychlost (zpráv/s)")
+    ax.set_ylabel("propustnost (zpráv/s)")
+    ax.set_title("Cena ingestionu + TimescaleDB — propustnost")
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+    fig.tight_layout()
+    p = out_dir / "pipeline-throughput.png"
+    fig.savefig(p, dpi=120)
+    plt.close(fig)
+    written.append(str(p))
+    return written
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(prog="brokerbench.export", description="Export výsledků")
     ap.add_argument("--results-dir", default="results")
@@ -263,9 +337,10 @@ def main() -> None:
         print(f"CSV:    {out/'benchmark.csv'}  ({len(rows)} řádků)")
         print(f"Souhrn: {out/'summary.md'}")
 
-    # grafy testů výpadku a škálovatelnosti (pokud jsou JSON výsledky)
+    # grafy testů výpadku, škálovatelnosti a pipeline (pokud jsou JSON výsledky)
     charts += write_failtest_chart(results_dir, out)
     charts += write_scaletest_charts(results_dir, out)
+    charts += write_pipeline_chart(results_dir, out)
 
     if charts:
         print(f"Grafy:  {len(charts)} PNG v {out}/")

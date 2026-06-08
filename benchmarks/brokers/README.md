@@ -399,19 +399,39 @@ Skript navíc před měřením **zastaví Grafanu** (ať nepere o CPU s brokerem
 
 ### Výsledky
 
-> ⚠️ **Zatím nezměřeno.** Spusť `./run_pipeline.sh` na **stejném stroji jako
-> broker-only baseline** (viz *Testovací prostředí* výše) a doplň. Čísla z jiného
-> stroje/OS nejsou s baseline srovnatelná, proto je sem **nevkládáme** (raději nic
-> než zavádějící data).
+Běh 2026-06-08 na stejném stroji jako broker baseline (viz *Testovací prostředí*).
+EMQX, QoS 1, dávka 500 řádků / 100 ms, `synchronous_commit=on`, `fsync=on`,
+medián ze 3, broker-only měřeno se **zapnutou DB** (férové prostředí).
 
-Po běhu vyplň (formát jako broker tabulky), referenční bod např. **5 000 zpráv/s, QoS 1**:
+**Čistý bod (2 500 zpráv/s — oba bez ztrát):**
 
-| Varianta | uloženo/s | ztráta % | p95 ms | p99 ms | DB CPU % | DB RAM MB | ING CPU % | ING RAM MB |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| broker-only `emqx` (DB zapnutá) | — | — | — | — | — | — | — | — |
-| pipeline `emqx → DB` | — | — | — | — | — | — | — | — |
+| Varianta | uloženo/s | p95 ms | p99 ms | zdroje |
+|---|---:|---:|---:|---|
+| broker-only `emqx` (DB zapnutá) | 2 500 | **3.1** | 7.8 | broker CPU 150 % / 252 MB |
+| pipeline `emqx → DB` | 2 500 | **127.4** | 156.4 | DB 31 % / 89 MB · ingester 7 % / 42 MB |
 
-Doplň i **závěr**: o kolik vzroste latence (p95) a klesne propustnost přidáním
-ingestionu+DB a jak to ovlivní `FLUSH_MS` (křivka) — to je jádro odpovědi na
-„má to vliv na výkon".
+**Referenční bod 5 000 zpráv/s** (pipeline už **saturovaný** — latence = backlog):
+
+| Varianta | uloženo/s | p95 ms | p99 ms | zdroje |
+|---|---:|---:|---:|---|
+| broker-only `emqx` (DB zapnutá) | 5 000 | 41.9 | 49.4 | broker CPU 199 % / 252 MB |
+| pipeline `emqx → DB` | 5 000 | 4 002 | 4 027 | DB 45 % / 153 MB · ingester 29 % / 49 MB |
+
+![Latence p95: broker-only vs pipeline](charts/pipeline-latency.png)
+![Propustnost: broker-only vs pipeline](charts/pipeline-throughput.png)
+
+### Závěr
+
+- **Cena ingestionu + perzistence** (čistý bod 2 500/s): latence p95 vyskočí
+  z **3 ms na 127 ms**. Většinu tvoří **dávkování** (`flush_ms=100` — zpráva čeká
+  na uzavření dávky) + durabilní COMMIT (fsync WAL). Je to **konfigurovatelná páka**
+  (menší `flush_ms` → nižší latence, ale víc menších zápisů).
+- **Strop jednoho ingesteru ≈ 2 500–3 000 zpráv/s** — nad tím latence exploduje
+  (4 s při 5 000/s) a od 7 500/s jsou ztráty. Broker-only přitom čistě zvládá
+  ~7 500/s. **Úzké hrdlo je tedy konzument, ne TimescaleDB** (DB CPU jen 31–45 %).
+- **Důsledek pro architekturu:** pro vyšší zátěž škálovat **ingestion vrstvu**
+  (víc konzumentů přes MQTT 5 shared subscriptions / `COPY` z víc workerů), ne
+  primárně databázi. To je přesně to, co řeší Fáze 4 (ROADMAP §4).
+- Reprodukovatelnost: latence závisí na `flush_ms` a `synchronous_commit` —
+  proto je `pipeline.py` vypisuje i ukládá do JSON.
 

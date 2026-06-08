@@ -16,6 +16,13 @@ name: iot-sensor-platform
 #
 # Konfigurace přes infra/.env (zkopíruj infra/.env.example).
 
+# Zvýšený limit file descriptorů pro brokery (default kontejneru 1024 = strop
+# ~1000 souběžných spojení; pro test škálovatelnosti potřebujeme víc).
+x-broker-ulimits: &broker-ulimits
+  nofile:
+    soft: 65536
+    hard: 65536
+
 services:
   # ═══════════════════════════════════════════════════════════════
   #  PLATFORMA  (profil: platform)
@@ -82,6 +89,7 @@ services:
     image: emqx/emqx:5.8
     container_name: iot-emqx
     profiles: ["emqx"]
+    ulimits: *broker-ulimits
     restart: unless-stopped
     ports:
       - "1883:1883"
@@ -107,6 +115,7 @@ services:
     image: eclipse-mosquitto:2
     container_name: iot-mosquitto
     profiles: ["mosquitto"]
+    ulimits: *broker-ulimits
     restart: unless-stopped
     ports:
       - "1883:1883"
@@ -126,6 +135,7 @@ services:
     image: emqx/nanomq:0.22
     container_name: iot-nanomq
     profiles: ["nanomq"]
+    ulimits: *broker-ulimits
     restart: unless-stopped
     ports:
       - "1883:1883"
@@ -139,6 +149,7 @@ services:
     image: hivemq/hivemq-ce:2024.3
     container_name: iot-hivemq
     profiles: ["hivemq"]
+    ulimits: *broker-ulimits
     restart: unless-stopped
     ports:
       - "1883:1883"
@@ -150,6 +161,7 @@ services:
     image: vernemq/vernemq:1.13.0
     container_name: iot-vernemq
     profiles: ["vernemq"]
+    ulimits: *broker-ulimits
     restart: unless-stopped
     ports:
       - "1883:1883"
@@ -169,6 +181,7 @@ services:
     image: rabbitmq:3.13-management
     container_name: iot-rabbitmq
     profiles: ["rabbitmq"]
+    ulimits: *broker-ulimits
     restart: unless-stopped
     ports:
       - "1883:1883"
@@ -189,6 +202,7 @@ services:
     image: apache/activemq-artemis:2.37.0
     container_name: iot-artemis
     profiles: ["artemis"]
+    ulimits: *broker-ulimits
     restart: unless-stopped
     ports:
       - "1883:1883"

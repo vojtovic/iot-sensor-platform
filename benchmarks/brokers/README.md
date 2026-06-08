@@ -41,23 +41,40 @@ kroku se měří:
 
 ## Spuštění
 
+### Předpoklady (i pro reprodukci na jiném stroji)
+
+- **Docker** (běžící démon; uživatel ve skupině `docker`, jinak `sudo`/`sg docker`),
+- **Python ≥ 3.11**.
+
+Brokery i fd limity řeší `../../infra/docker-compose.yml` (image se stáhnou samy).
+Absolutní čísla budou jiná podle HW — relativní srovnání platí napříč stroji.
+
+### Kompletní reprodukce
+
 ```bash
 cd benchmarks/brokers/
 python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e ".[dev,viz]"               # vč. matplotlibu na grafy
 
-# celá sada (zastaví/spustí brokery sám přes ../../infra/broker.sh)
-./run_all.sh
-# nebo vybrané brokery / parametry
-RATES=1000,5000,10000 DURATION=8 ./run_all.sh emqx mosquitto
+./run_all.sh                              # výkon: rampa QoS1 (propustnost/latence/CPU/RAM)
+QOS=0 RATES=5000,10000,15000,20000,30000 ./run_all.sh   # výkon: QoS0 do saturace
+./run_failtest.sh                         # spolehlivost: výpadek (restart brokeru)
+./run_scaletest.sh                        # škálovatelnost: počet spojení
 
+python -m brokerbench.export              # CSV + souhrn + grafy → results/export/
+```
+
+Pro stabilnější čísla přidej `REPEAT=3` (medián). Jednotlivé runnery berou i
+seznam brokerů, např. `./run_failtest.sh mosquitto hivemq`.
+
+```bash
 # jeden broker, který už běží na localhost:1883
 python -m brokerbench --broker emqx --container iot-emqx --rates 1000,5000,10000
 ```
 
-> Vyžaduje docker. Dokud nemáš docker bez sudo, spouštěj přes
-> `sg docker -c './run_all.sh'`. Výsledky (JSON + souhrn) jdou do `results/`
-> (gitignored).
+> Dokud nemáš docker bez sudo, spouštěj přes `sg docker -c './run_all.sh'`.
+> Výsledky (JSON + souhrn + grafy) jdou do `results/` (gitignored) —
+> commitnuté grafy v `charts/` se přepíšou až ručním zkopírováním.
 
 ### Stabilnější čísla (opakování, QoS, in-flight okno)
 

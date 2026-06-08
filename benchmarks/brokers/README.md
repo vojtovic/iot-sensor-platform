@@ -268,7 +268,9 @@ Spouští `./run_failtest.sh` (modul `brokerbench.failtest`).
 - **EMQX a Mosquitto** drží frontu jen v paměti (lze zapnout persistenci v configu);
   po pádu je pryč.
 - **NanoMQ** offline frontu vůbec nedrží (ultra-lehký edge broker) — zprávy pro
-  odpojeného subscribera zahodí i bez restartu.
+  odpojeného subscribera zahodí i bez restartu. Pozn.: testovaná verze 0.22
+  je *před* zavedením offline-message cache (SQLite), kterou NanoMQ přidal až
+  ve v0.24.14 — náš výsledek tedy odpovídá známému chování té verze.
 - **Duplikáty:** QoS 1 je „at least once" — občas dorazí zpráva víckrát (proto
   telemetrie nese `seq` na deduplikaci). V testu se objevily nahodile.
 

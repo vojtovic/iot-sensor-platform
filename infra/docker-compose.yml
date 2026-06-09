@@ -99,6 +99,11 @@ services:
       EMQX_DASHBOARD__DEFAULT_USERNAME: ${EMQX_DASHBOARD_USERNAME:-admin}
       EMQX_DASHBOARD__DEFAULT_PASSWORD: ${EMQX_DASHBOARD_PASSWORD:-iot-dev}
       # Anonymní připojení povoleno (per-device auth + ACL až Fáze 4).
+      # Durable sessions (persistence QoS1 na disk přes restart) — volitelně.
+      # Default vypnuto (kvůli neměnnému benchmark chování); zapni EMQX_DURABLE=true.
+      EMQX_DURABLE_SESSIONS__ENABLE: ${EMQX_DURABLE:-false}
+      # builtin_local durable storage vyžaduje singleton discovery (jednouzlové nasazení).
+      EMQX_CLUSTER__DISCOVERY_STRATEGY: singleton
     volumes:
       - emqx-data:/opt/emqx/data
       - emqx-log:/opt/emqx/log

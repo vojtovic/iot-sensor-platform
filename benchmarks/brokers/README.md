@@ -417,8 +417,12 @@ medián ze 3, broker-only měřeno se **zapnutou DB** (férové prostředí).
 | broker-only `emqx` (DB zapnutá) | 5 000 | 41.9 | 49.4 | broker CPU 199 % / 252 MB |
 | pipeline `emqx → DB` | 5 000 | 4 002 | 4 027 | DB 45 % / 153 MB · ingester 29 % / 49 MB |
 
-![Latence p95: broker-only vs pipeline](charts/pipeline-latency.png)
-![Propustnost: broker-only vs pipeline](charts/pipeline-throughput.png)
+![Latence p95 pipeline napříč brokery](charts/pipeline-latency.png)
+![Propustnost pipeline napříč brokery](charts/pipeline-throughput.png)
+
+*Plné čáry = pipeline (→ DB) pro každý broker; čárkovaně broker-only `emqx` (bez
+zápisu do DB). 6 brokerů splývá na společném stropu ingesteru ~5 000/s; HiveMQ
+je níž (~1 250/s — jeho QoS1 strop, viz výše).*
 
 ### Závěr
 
@@ -434,4 +438,20 @@ medián ze 3, broker-only měřeno se **zapnutou DB** (férové prostředí).
   primárně databázi. To je přesně to, co řeší Fáze 4 (ROADMAP §4).
 - Reprodukovatelnost: latence závisí na `flush_ms` a `synchronous_commit` —
   proto je `pipeline.py` vypisuje i ukládá do JSON.
+
+### Napříč brokery — je pipeline broker-nezávislá?
+
+Pipeline byla změřena pro **všech 7 brokerů**. Protože hrdlem je ingestion
+konzument (ne broker, ne DB), výsledek to potvrzuje:
+
+| Broker | strop pipeline (uloženo/s) | hrdlo |
+|---|---:|---|
+| EMQX, Mosquitto, NanoMQ, VerneMQ, RabbitMQ, Artemis | **~5 000** | ingestion konzument |
+| HiveMQ CE | **~1 250** | broker (jeho QoS1 strop, viz výše) |
+
+**Závěr:** u 6 ze 7 brokerů je pipeline strop **stejný** (~5 000/s) — volba brokeru
+end-to-end výkon nemění, rozhoduje ingestion vrstva. Jediná výjimka je HiveMQ,
+kde je hrdlem už samotný broker (durabilní QoS1 ~1 250/s). To je silný argument:
+**pro škálování řešit ingestion, ne broker** — pokud nezvolíš broker, který sám
+QoS1 stropuje dřív (HiveMQ).
 

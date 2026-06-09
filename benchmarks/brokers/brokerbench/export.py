@@ -248,7 +248,11 @@ def write_scaletest_charts(results_dir: Path, out_dir: Path) -> list[str]:
 
 
 def write_pipeline_chart(results_dir: Path, out_dir: Path) -> list[str]:
-    """Graf pipeline: latence (p95) a propustnost broker-only vs end-to-end (DB)."""
+    """Grafy pipeline (end-to-end → DB) per broker: latence p95 a propustnost.
+
+    Plus přerušovaná reference broker-only (emqx s DB) = co umí samotný broker
+    bez zápisu do DB.
+    """
     try:
         import matplotlib
         matplotlib.use("Agg")
@@ -256,66 +260,51 @@ def write_pipeline_chart(results_dir: Path, out_dir: Path) -> list[str]:
     except ImportError:
         return []
 
-    def latest(glob_pat: str):
-        files = sorted(results_dir.glob(glob_pat))
-        if not files:
-            return None
-        try:
-            return json.loads(files[-1].read_text())
-        except (ValueError, OSError):
-            return None
-
-    pipe = latest("pipeline-*.json")
-    base = latest("*-withdb-*.json")
-    if not pipe:
+    pipes = _latest_per_broker(results_dir, "pipeline-")  # {pipeline-<b>: data}
+    if not pipes:
         return []
+    base = _latest_per_broker(results_dir, "")  # broker-only-with-db baseline(y)
+    base = {k: v for k, v in base.items() if k.endswith("-withdb")}
 
     def series(d, key):
         steps = d.get("steps", [])
         xs = [s["target_rate"] for s in steps]
-        if key == "p95":
-            ys = [s.get("lat", {}).get("p95", 0) for s in steps]
-        else:
-            ys = [s.get(key, 0) for s in steps]
+        ys = ([s.get("lat", {}).get("p95", 0) for s in steps] if key == "p95"
+              else [s.get(key, 0) for s in steps])
         return xs, ys
 
     out_dir.mkdir(parents=True, exist_ok=True)
     written: list[str] = []
 
-    # Latence p95: broker-only vs pipeline (log škála — pipeline saturuje dřív).
-    fig, ax = plt.subplots(figsize=(8, 5))
-    if base:
-        x, y = series(base, "p95"); ax.plot(x, y, marker="o", label="broker-only (emqx)")
-    x, y = series(pipe, "p95"); ax.plot(x, y, marker="o", label="pipeline (emqx → DB)")
-    ax.set_xlabel("cílová rychlost (zpráv/s)")
-    ax.set_ylabel("latence p95 (ms)")
-    ax.set_yscale("log")
-    ax.set_title("Cena ingestionu + TimescaleDB — latence p95")
-    ax.grid(True, alpha=0.3)
-    ax.legend()
-    fig.tight_layout()
-    p = out_dir / "pipeline-latency.png"
-    fig.savefig(p, dpi=120)
-    plt.close(fig)
-    written.append(str(p))
-
-    # Propustnost (uloženo/s) vs cíl.
-    fig, ax = plt.subplots(figsize=(8, 5))
-    if base:
-        x, y = series(base, "throughput"); ax.plot(x, y, marker="o", label="broker-only (emqx)")
-    x, y = series(pipe, "throughput"); ax.plot(x, y, marker="o", label="pipeline (emqx → DB)")
-    allx = sorted({s["target_rate"] for s in pipe.get("steps", [])})
-    ax.plot(allx, allx, "k--", alpha=0.3, label="ideál (cíl)")
-    ax.set_xlabel("cílová rychlost (zpráv/s)")
-    ax.set_ylabel("propustnost (zpráv/s)")
-    ax.set_title("Cena ingestionu + TimescaleDB — propustnost")
-    ax.grid(True, alpha=0.3)
-    ax.legend()
-    fig.tight_layout()
-    p = out_dir / "pipeline-throughput.png"
-    fig.savefig(p, dpi=120)
-    plt.close(fig)
-    written.append(str(p))
+    for key, ylabel, fname, logy in [
+        ("p95", "latence p95 (ms)", "pipeline-latency.png", True),
+        ("throughput", "uloženo (zpráv/s)", "pipeline-throughput.png", False),
+    ]:
+        fig, ax = plt.subplots(figsize=(9, 5))
+        for label in sorted(pipes):
+            x, y = series(pipes[label], key)
+            if x:
+                ax.plot(x, y, marker="o", label=label.replace("pipeline-", ""))
+        for label in sorted(base):  # broker-only reference (čárkovaně)
+            x, y = series(base[label], key)
+            if x:
+                ax.plot(x, y, "--", alpha=0.5, label=f"{label} (broker-only)")
+        if key == "throughput":
+            allx = sorted({s["target_rate"] for d in pipes.values()
+                           for s in d.get("steps", [])})
+            ax.plot(allx, allx, "k:", alpha=0.3, label="ideál (cíl)")
+        ax.set_xlabel("cílová rychlost (zpráv/s)")
+        ax.set_ylabel(ylabel)
+        if logy:
+            ax.set_yscale("log")
+        ax.set_title(f"Pipeline (→ TimescaleDB) — {ylabel}")
+        ax.grid(True, alpha=0.3)
+        ax.legend(fontsize=8)
+        fig.tight_layout()
+        p = out_dir / fname
+        fig.savefig(p, dpi=120)
+        plt.close(fig)
+        written.append(str(p))
     return written
 
 

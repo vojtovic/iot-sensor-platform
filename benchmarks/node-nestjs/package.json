@@ -1,0 +1,12 @@
+{
+  "name": "iot-ingest-node",
+  "version": "0.1.0",
+  "description": "Tenká ingestion služba (Node.js) pro benchmark stacků",
+  "main": "ingest.js",
+  "private": true,
+  "dependencies": {
+    "mqtt": "^5.10.0",
+    "pg": "^8.13.0",
+    "pg-copy-streams": "^6.0.6"
+  }
+}

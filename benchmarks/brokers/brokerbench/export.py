@@ -26,7 +26,7 @@ def load_results(results_dir: Path) -> list[dict]:
     """Načte všechny *.json (kromě adresáře export/) a zploští na řádky kroků."""
     rows: list[dict] = []
     for jf in sorted(results_dir.glob("*.json")):
-        if jf.name.startswith(("failtest-", "scaletest-", "pipeline-")):
+        if jf.name.startswith(("failtest-", "scaletest-", "pipeline-", "stack-")):
             continue  # jiný tvar / vlastní grafy
         if "-withdb" in jf.name:
             continue  # pipeline baseline — nepatří do čistého broker srovnání
@@ -308,6 +308,62 @@ def write_pipeline_chart(results_dir: Path, out_dir: Path) -> list[str]:
     return written
 
 
+def write_stack_chart(results_dir: Path, out_dir: Path) -> list[str]:
+    """Grafy benchmarku backend stacků: propustnost, latence p95, RAM."""
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError:
+        return []
+    stacks = _latest_per_broker(results_dir, "stack-")
+    if not stacks:
+        return []
+    out_dir.mkdir(parents=True, exist_ok=True)
+    written: list[str] = []
+
+    def series(d, key):
+        steps = d.get("steps", [])
+        xs = [s["target_rate"] for s in steps]
+        if key == "p95":
+            ys = [s.get("lat", {}).get("p95", 0) for s in steps]
+        elif key == "ram":
+            ys = [s.get("ing_mem_mb", 0) for s in steps]
+        else:
+            ys = [s.get(key, 0) for s in steps]
+        return xs, ys
+
+    def label(k):  # "stack-python" → "python"
+        return k.replace("stack-", "")
+
+    for key, ylabel, fname, logy, ideal in [
+        ("throughput", "uloženo (zpráv/s)", "stack-throughput.png", False, True),
+        ("p95", "latence p95 (ms)", "stack-latency.png", True, False),
+        ("ram", "RAM služby (MB)", "stack-ram.png", False, False),
+    ]:
+        fig, ax = plt.subplots(figsize=(8, 5))
+        for k in sorted(stacks):
+            x, y = series(stacks[k], key)
+            if x:
+                ax.plot(x, y, marker="o", label=label(k))
+        if ideal:
+            allx = sorted({s["target_rate"] for d in stacks.values() for s in d.get("steps", [])})
+            ax.plot(allx, allx, "k--", alpha=0.3, label="ideál (cíl)")
+        ax.set_xlabel("cílová rychlost (zpráv/s)")
+        ax.set_ylabel(ylabel)
+        if logy:
+            ax.set_yscale("log")
+        ax.set_title(f"Backend stacky (ingestion → DB) — {ylabel}")
+        ax.grid(True, alpha=0.3)
+        ax.legend(fontsize=9)
+        fig.tight_layout()
+        p = out_dir / fname
+        fig.savefig(p, dpi=120)
+        plt.close(fig)
+        written.append(str(p))
+    return written
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(prog="brokerbench.export", description="Export výsledků")
     ap.add_argument("--results-dir", default="results")
@@ -330,6 +386,7 @@ def main() -> None:
     charts += write_failtest_chart(results_dir, out)
     charts += write_scaletest_charts(results_dir, out)
     charts += write_pipeline_chart(results_dir, out)
+    charts += write_stack_chart(results_dir, out)
 
     if charts:
         print(f"Grafy:  {len(charts)} PNG v {out}/")

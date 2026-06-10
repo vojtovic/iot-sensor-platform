@@ -70,3 +70,6 @@ Důvody:
 
 - Benchmark: [benchmarks/brokers/README.md](../../benchmarks/brokers/README.md)
 - Doporučení stacku: ROADMAP §9 (EMQX jako default)
+- Ověření proti literatuře (citace): [docs/reference/externi-zdroje.md](../reference/externi-zdroje.md)
+  — naše závěry (lehké brokery úsporné, EMQX škáluje, Mosquitto default bez
+  persistence, NanoMQ 0.22 bez offline fronty) odpovídají zdrojům.

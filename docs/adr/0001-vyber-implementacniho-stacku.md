@@ -76,3 +76,6 @@ Důvody:
 
 - Benchmark a metodika: [benchmarks/](../../benchmarks/)
 - Souvisí s [ADR 0004](0004-vyber-mqtt-brokeru.md) (broker EMQX)
+- Ověření proti literatuře (citace): [docs/reference/externi-zdroje.md](../reference/externi-zdroje.md)
+  — naše pořadí (.NET ≈ Java > Node > Python) i paměťový rozdíl .NET vs Spring
+  odpovídají publikovaným srovnáním.

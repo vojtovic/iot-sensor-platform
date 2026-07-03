@@ -8,6 +8,8 @@
 
 **Tech Stack:** .NET 10 (net10.0), C#; ASP.NET Core (Controllers), EF Core 10 + Npgsql.EntityFrameworkCore.PostgreSQL, Npgsql (binární COPY), MQTTnet 4.3, xUnit, built-in OpenAPI, Docker.
 
+**Aktualizace rozsahu (holá kostra — rozhodnuto 2026-07-03):** stavíme jen **typy + propojení (wiring)**, funkční těla zůstávají jako `TODO (autor)`. Konkrétně jsou stubem: `TelemetryPayloadParser.Parse` (Task 2), `NpgsqlTelemetryWriter.WriteAsync` (Task 4) a dotaz v `GET /v1/devices` (Task 5). Reálné připojení k DB ověří **health-check** (otevře spojení), takže kostra jde spustit i bez doménové logiky. Testy netestují (neexistující) doménovou logiku — Core test je skip placeholder, Api test je boot/wiring smoke.
+
 **Předpoklady prostředí:**
 - `dotnet --version` → 10.0.x (ověřeno 10.0.104).
 - Docker přes `sg docker -c '...'` (uživatel nemusí být v `docker` skupině — viz CLAUDE.md).
@@ -578,45 +580,33 @@ public sealed class MqttOptions
 
 Create `backend/src/IoT.Infrastructure/Telemetry/NpgsqlTelemetryWriter.cs`:
 
+**Holá kostra:** tělo je stub s `TODO`. Referenční implementace COPY (z prototypu
+`benchmarks/dotnet/`) je v komentáři jako vodítko pro autora. Třída nemá ctor
+závislosti (aby `NpgsqlDataSource` nebyl nečtený parametr → CS9113 s warnings-as-errors);
+autor si `NpgsqlDataSource` vstříkne až při implementaci (je registrovaný v DI).
+
 ```csharp
 using IoT.Core.Abstractions;
 using IoT.Core.Telemetry;
-using Npgsql;
-using NpgsqlTypes;
 
 namespace IoT.Infrastructure.Telemetry;
 
 /// <summary>
-/// Zápis telemetrie binárním COPY do hypertable <c>telemetry</c>. Vysoký zápisový
-/// tok jde mimo EF (žádný change-tracking). Sloupec <c>time</c> = čas měření;
-/// <c>received_at</c> doplní default DB. Pozor: channel_id je bigint (int8).
+/// Zápis telemetrie do hypertable <c>telemetry</c>. V plné verzi jde vysoký zápisový
+/// tok binárním COPY mimo EF (bez change-trackingu). Sloupec <c>time</c> = čas měření,
+/// <c>received_at</c> doplní default DB; pozor channel_id je bigint (int8).
+///
+/// TODO (autor): implementovat dávkový binární COPY. Vzor (prototyp benchmarks/dotnet/):
+///   await using var conn = await dataSource.OpenConnectionAsync(ct);
+///   await using var w = await conn.BeginBinaryImportAsync(
+///       "COPY telemetry (time,device_id,channel_id,value,quality,seq) FROM STDIN (FORMAT BINARY)", ct);
+///   foreach (var r in rows) { await w.StartRowAsync(ct); ...WriteAsync(r.X, NpgsqlDbType.Y, ct)... }
+///   await w.CompleteAsync(ct);
 /// </summary>
-public sealed class NpgsqlTelemetryWriter(NpgsqlDataSource dataSource) : ITelemetryWriter
+public sealed class NpgsqlTelemetryWriter : ITelemetryWriter
 {
-    public async Task WriteAsync(IReadOnlyList<TelemetryRow> rows, CancellationToken ct)
-    {
-        if (rows.Count == 0)
-        {
-            return;
-        }
-
-        await using var conn = await dataSource.OpenConnectionAsync(ct);
-        await using var writer = await conn.BeginBinaryImportAsync(
-            "COPY telemetry (time, device_id, channel_id, value, quality, seq) FROM STDIN (FORMAT BINARY)", ct);
-
-        foreach (var r in rows)
-        {
-            await writer.StartRowAsync(ct);
-            await writer.WriteAsync(r.Time, NpgsqlDbType.TimestampTz, ct);
-            await writer.WriteAsync(r.DeviceId, NpgsqlDbType.Text, ct);
-            await writer.WriteAsync(r.ChannelId, NpgsqlDbType.Bigint, ct);
-            await writer.WriteAsync(r.Value, NpgsqlDbType.Double, ct);
-            await writer.WriteAsync(r.Quality, NpgsqlDbType.Smallint, ct);
-            await writer.WriteAsync(r.Seq, NpgsqlDbType.Bigint, ct);
-        }
-
-        await writer.CompleteAsync(ct);
-    }
+    public Task WriteAsync(IReadOnlyList<TelemetryRow> rows, CancellationToken ct) =>
+        throw new NotImplementedException("TODO (autor): dávkový binární COPY do telemetry.");
 }
 ```
 
@@ -721,25 +711,30 @@ public partial class Program;
 
 Create `backend/src/IoT.Api/Controllers/DevicesController.cs`:
 
+**Holá kostra:** tělo je stub vracející prázdný seznam s `TODO` (endpoint tak vrací
+200 + `[]` a projde smoke testem). Reálný dotaz přes `AppDbContext` dopisuje autor.
+Kontroler proto zatím `AppDbContext` **nevstřikuje** (aby nebyl nečtený → warning).
+Připojení k DB ověřuje `/health` (AddDbContextCheck), ne tento endpoint.
+
 ```csharp
-using IoT.Infrastructure.Metadata;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace IoT.Api.Controllers;
 
 /// <summary>Seznam zařízení z metadat. Průchozí endpoint skeletonu (rozšiřuje autor).</summary>
 [ApiController]
 [Route("v1/[controller]")]
-public sealed class DevicesController(AppDbContext db) : ControllerBase
+public sealed class DevicesController : ControllerBase
 {
-    /// <summary>Vrátí seznam registrovaných zařízení.</summary>
+    /// <summary>
+    /// Vrátí seznam registrovaných zařízení.
+    /// TODO (autor): vstříknout AppDbContext a načíst zařízení, např.:
+    ///   await db.Devices.OrderBy(d => d.DeviceId)
+    ///       .Select(d => new DeviceDto(d.DeviceId, d.HwType, d.Status, d.LastSeen)).ToListAsync(ct);
+    /// </summary>
     [HttpGet]
-    public async Task<IReadOnlyList<DeviceDto>> Get(CancellationToken ct) =>
-        await db.Devices
-            .OrderBy(d => d.DeviceId)
-            .Select(d => new DeviceDto(d.DeviceId, d.HwType, d.Status, d.LastSeen))
-            .ToListAsync(ct);
+    public Task<IReadOnlyList<DeviceDto>> Get(CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<DeviceDto>>([]);
 }
 
 /// <summary>Výstupní DTO zařízení (odděleno od EF entity).</summary>

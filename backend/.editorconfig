@@ -9,3 +9,9 @@ dotnet_sort_system_directives_first = true
 csharp_new_line_before_open_brace = all
 dotnet_style_namespace_match_folder = true
 csharp_style_namespace_declarations = file_scoped:warning
+
+[*.csproj]
+charset = utf-8
+insert_final_newline = true
+indent_style = space
+indent_size = 2

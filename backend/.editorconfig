@@ -1,0 +1,11 @@
+root = true
+
+[*.cs]
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+charset = utf-8
+dotnet_sort_system_directives_first = true
+csharp_new_line_before_open_brace = all
+dotnet_style_namespace_match_folder = true
+csharp_style_namespace_declarations = file_scoped:warning

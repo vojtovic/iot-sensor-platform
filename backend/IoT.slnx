@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/IoT.Api/IoT.Api.csproj" />
+    <Project Path="src/IoT.Core/IoT.Core.csproj" />
+    <Project Path="src/IoT.Infrastructure/IoT.Infrastructure.csproj" />
+    <Project Path="src/IoT.Ingestion/IoT.Ingestion.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/IoT.Api.Tests/IoT.Api.Tests.csproj" />
+    <Project Path="tests/IoT.Core.Tests/IoT.Core.Tests.csproj" />
+  </Folder>
+</Solution>

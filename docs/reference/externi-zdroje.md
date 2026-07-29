@@ -33,6 +33,44 @@ to je hlavní hodnota pro obhajobu.
 | Medium — Spring Boot vs ASP.NET Core | https://medium.com/@putuprema/spring-boot-vs-asp-net-core-a-showdown-1d38b89c6c2d | ASP.NET Core <200 MB vs Spring 500 MB–1 GB; rychlejší start (<1 s vs 2–4 s) |
 | ResearchGate (PDF) — Spring Boot vs .NET Core RESTful | https://www.researchgate.net/publication/352526403_A_Performance_Comparison_of_RESTful_Applications_Implemented_in_Spring_Boot_Java_and_MSNET_Core | akademické srovnání výkonu Spring Boot vs .NET Core |
 
+## Backend implementace — dokumentace technologií (.NET, Fáze 4)
+
+Oficiální dokumentace ke stacku, podle které se staví backend v `backend/`
+(rozhodnutí stacku v [ADR 0001](../adr/0001-vyber-implementacniho-stacku.md)).
+
+| Téma | URL | K čemu |
+|---|---|---|
+| Konfigurace (ASP.NET Core) | https://learn.microsoft.com/aspnet/core/fundamentals/configuration/ | appsettings, env override |
+| Options pattern | https://learn.microsoft.com/dotnet/core/extensions/options | silně typovaná konfigurace (MqttOptions) |
+| Dependency injection | https://learn.microsoft.com/aspnet/core/fundamentals/dependency-injection | registrace služeb |
+| Logging | https://learn.microsoft.com/dotnet/core/extensions/logging | structured logging |
+| System.Text.Json | https://learn.microsoft.com/dotnet/standard/serialization/system-text-json/ | parsování JSON payloadu |
+| Worker Services / BackgroundService | https://learn.microsoft.com/dotnet/core/extensions/workers | samostatná ingestion služba |
+| MQTTnet (wiki) | https://github.com/dotnet/MQTTnet/wiki | MQTT klient: connect, subscribe |
+| MQTTnet (samples) | https://github.com/dotnet/MQTTnet/tree/master/Samples | ukázky kódu klienta |
+| MQTT shared subscriptions | https://docs.emqx.com/en/emqx/latest/messaging/mqtt-shared-subscription.html | škálování víc konzumentů ($share) |
+| Npgsql — Binary COPY | https://www.npgsql.org/doc/copy.html | dávkový zápis telemetrie mimo EF |
+| Npgsql — NpgsqlDataSource / basic usage | https://www.npgsql.org/doc/basic-usage.html | správa spojení |
+| Npgsql — typy | https://www.npgsql.org/doc/types/basic.html | mapování typů (channel_id = bigint) |
+| EF Core (přehled) | https://learn.microsoft.com/ef/core/ | ORM na metadata |
+| EF Core — fluent API mapování | https://learn.microsoft.com/ef/core/modeling/ | ruční mapování na existující tabulky |
+| EF Core — scaffolding (db-first) | https://learn.microsoft.com/ef/core/managing-schemas/scaffolding | generování DbContextu z DB |
+| EF Core — dotazování | https://learn.microsoft.com/ef/core/querying/ | LINQ dotazy |
+| Npgsql EF Core provider | https://www.npgsql.org/efcore/ | UseNpgsql, specifika PostgreSQL |
+| ASP.NET Core Web API (Controllers) | https://learn.microsoft.com/aspnet/core/web-api/ | REST vrstva |
+| ASP.NET Core — routing | https://learn.microsoft.com/aspnet/core/fundamentals/routing | atributové routování |
+| ASP.NET Core — OpenAPI (built-in) | https://learn.microsoft.com/aspnet/core/fundamentals/openapi/ | generování OpenAPI dokumentu |
+| ASP.NET Core — Health checks | https://learn.microsoft.com/aspnet/core/host-and-deploy/health-checks | /health nad DbContextem |
+| ASP.NET Core — WebSockets | https://learn.microsoft.com/aspnet/core/fundamentals/websockets | live stream telemetrie |
+| ASP.NET Core — Authentication | https://learn.microsoft.com/aspnet/core/security/authentication/ | přehled autentizace |
+| ASP.NET Core — JWT bearer | https://learn.microsoft.com/aspnet/core/security/authentication/configure-jwt-bearer-authentication | JWT pro klienty API |
+| ASP.NET Core — Authorization | https://learn.microsoft.com/aspnet/core/security/authorization/introduction | policy/role, ACL |
+| Integrační testy (WebApplicationFactory) | https://learn.microsoft.com/aspnet/core/test/integration-tests | testy API bez reálné DB |
+| xUnit | https://xunit.net/docs/getting-started/v2/getting-started | testovací framework |
+| TimescaleDB — hypertables | https://docs.timescale.com/use-timescale/latest/hypertables/ | telemetrie (partitioning) |
+| TimescaleDB — continuous aggregates | https://docs.timescale.com/use-timescale/latest/continuous-aggregates/ | downsampling |
+| TimescaleDB — data retention | https://docs.timescale.com/use-timescale/latest/data-retention/ | retenční politika |
+
 ---
 
 ## Poznámka k použití

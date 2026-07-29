@@ -67,6 +67,7 @@ Oficiální dokumentace ke stacku, podle které se staví backend v `backend/`
 | ASP.NET Core — Authorization | https://learn.microsoft.com/aspnet/core/security/authorization/introduction | policy/role, ACL |
 | Integrační testy (WebApplicationFactory) | https://learn.microsoft.com/aspnet/core/test/integration-tests | testy API bez reálné DB |
 | xUnit | https://xunit.net/docs/getting-started/v2/getting-started | testovací framework |
+| Testcontainers for .NET | https://dotnet.testcontainers.org/ | integrační testy proti reálné TimescaleDB v kontejneru |
 | TimescaleDB — hypertables | https://docs.timescale.com/use-timescale/latest/hypertables/ | telemetrie (partitioning) |
 | TimescaleDB — continuous aggregates | https://docs.timescale.com/use-timescale/latest/continuous-aggregates/ | downsampling |
 | TimescaleDB — data retention | https://docs.timescale.com/use-timescale/latest/data-retention/ | retenční politika |
